@@ -3,7 +3,6 @@ com/itsfriendly/designcore/command/FriendCommand.class
 com/itsfriendly/designcore/listener/PlayerConnectionListener.class
 com/itsfriendly/designcore/manager/FriendManager.class
 com/itsfriendly/designcore/command/SpyMCommand.class
-com/itsfriendly/designcore/listener/ChatListener$1.class
 com/itsfriendly/designcore/DesignCore.class
 com/itsfriendly/designcore/manager/UpdateChecker.class
 com/itsfriendly/designcore/command/DesignCommand.class
