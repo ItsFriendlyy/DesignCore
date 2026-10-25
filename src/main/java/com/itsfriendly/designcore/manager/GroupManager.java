@@ -45,7 +45,7 @@ public class GroupManager {
         String permName = "designcore.group." + groupName.toLowerCase();
         Permission perm = Bukkit.getPluginManager().getPermission(permName);
         if (perm == null) {
-            // PermissionDefault.FALSE prevents OP players from getting this permission by default
+            // PermissionDefault.FALSE يمنع لاعبي الـ OP من أخذ الصلاحية تلقائياً
             perm = new Permission(permName, "Access to " + groupName + " design group", PermissionDefault.FALSE);
             Bukkit.getPluginManager().addPermission(perm);
         } else {
@@ -98,9 +98,9 @@ public class GroupManager {
     }
 
     public GroupData getPlayerGroup(Player player) {
-        // 1. Check if the player has an explicit group permission assigned to them
+        // 1. التحقق أولاً مما إذا كان لدى اللاعب صلاحية رتبة مخصصة محددة صراحةً
         for (GroupData data : groups.values()) {
-            if (data.name().equalsIgnoreCase("default") || data.name().equalsIgnoreCase("admin")) {
+            if (data.name().equalsIgnoreCase("default") || data.name().equalsIgnoreCase("op")) {
                 continue;
             }
             if (player.hasPermission("designcore.group." + data.name().toLowerCase())) {
@@ -108,12 +108,15 @@ public class GroupManager {
             }
         }
 
-        // 2. If no custom group was explicitly assigned, give OP the admin group
-        if (player.isOp() && groups.containsKey("admin")) {
-            return groups.get("admin");
+        // 2. إذا كان اللاعب OP ولم يتم تخصيص رتبة يدوية له، يُعطى بادئة الـ OP
+        if (player.isOp()) {
+            if (groups.containsKey("op")) {
+                return groups.get("op");
+            }
+            return new GroupData("op", "&4&lOP - ", "");
         }
 
-        // 3. Fallback to default group
+        // 3. الرجوع لرتبة default لباقي اللاعبين
         return groups.getOrDefault("default", new GroupData("default", "", ""));
     }
 
@@ -122,13 +125,13 @@ public class GroupManager {
         String rawPrefix = group.prefix();
         String rawSuffix = group.suffix();
 
-        // Extract last color code in the prefix to continue onto the player's name
+        // استخراج كود اللون الأخير من البادئة ليكمل مع اسم اللاعب
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
         if (lastColors.isEmpty()) {
             lastColors = "§f";
         }
 
-        // Determine spacing
+        // حساب المسافات
         boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
         String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
 
@@ -141,7 +144,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab list display: [PREFIX] [PLAYERNAME] [SUFFIX]
+        // 1. قائمة اللاعبين (Tab List)
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -150,7 +153,7 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Nametag display via Scoreboard Teams
+        // 2. علامة الاسم فوق الرأس (Nametag) عبر فرق الـ Scoreboard
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         String teamName = "dc_" + group.name();
         if (teamName.length() > 16) {
@@ -165,7 +168,7 @@ public class GroupManager {
         team.prefix(tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer)));
         team.suffix(suffixComponent);
 
-        // Nametag color propagation via Bukkit ChatColor
+        // توريث اللون للـ Nametag
         ChatColor teamColor = null;
         for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
             if (lastColors.charAt(i) == '§') {
