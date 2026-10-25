@@ -1,0 +1,16 @@
+com/itsfriendly/designcore/command/MuteChatCommand.class
+com/itsfriendly/designcore/command/FriendCommand.class
+com/itsfriendly/designcore/listener/PlayerConnectionListener.class
+com/itsfriendly/designcore/manager/FriendManager.class
+com/itsfriendly/designcore/command/SpyMCommand.class
+com/itsfriendly/designcore/DesignCore.class
+com/itsfriendly/designcore/manager/UpdateChecker.class
+com/itsfriendly/designcore/command/DesignCommand.class
+com/itsfriendly/designcore/command/ReplyCommand.class
+com/itsfriendly/designcore/listener/ChatListener.class
+com/itsfriendly/designcore/manager/GroupManager$GroupData.class
+com/itsfriendly/designcore/command/PMSettingsCommand.class
+com/itsfriendly/designcore/command/MsgCommand.class
+com/itsfriendly/designcore/manager/ChatManager.class
+com/itsfriendly/designcore/listener/GUIListener.class
+com/itsfriendly/designcore/manager/GroupManager.class

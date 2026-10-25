@@ -1,0 +1,15 @@
+# DesignCore Configuration
+update-checker:
+  enabled: true
+  repo: "ItsFriendly/DesignCore"
+
+settings:
+  chat-muted: false
+
+groups:
+  default:
+    prefix: "&7[Member] "
+    suffix: ""
+  admin:
+    prefix: "&c[Admin] "
+    suffix: ""

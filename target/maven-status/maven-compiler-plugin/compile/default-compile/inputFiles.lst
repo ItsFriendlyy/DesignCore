@@ -1,0 +1,15 @@
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/manager/FriendManager.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/MsgCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/DesignCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/PMSettingsCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/listener/GUIListener.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/manager/UpdateChecker.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/listener/PlayerConnectionListener.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/manager/GroupManager.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/manager/ChatManager.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/SpyMCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/listener/ChatListener.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/ReplyCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/FriendCommand.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/DesignCore.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/MuteChatCommand.java

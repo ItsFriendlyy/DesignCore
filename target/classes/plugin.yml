@@ -1,0 +1,50 @@
+name: DesignCore
+version: '1.0.0'
+main: com.itsfriendly.designcore.DesignCore
+api-version: '1.20'
+author: ItsFriendly
+description: Complete chat formatting, nametags, groups, friends, and PM system.
+
+commands:
+  design:
+    description: Main administrative command for group and prefix configuration.
+    permission: designcore.admin
+  mutechat:
+    description: Toggles global public chat.
+    permission: designcore.mutechat
+  msg:
+    description: Send a private direct message to a player.
+    aliases: [tell, w]
+  reply:
+    description: Reply to the last received direct message.
+    aliases: [r]
+  friend:
+    description: Manage friend requests and list friends.
+    aliases: [f]
+  pmsettings:
+    description: Open GUI settings for direct messages and mutes.
+  spym:
+    description: Toggle staff spy to monitor private direct messages.
+    permission: designcore.spym
+
+permissions:
+  designcore.*:
+    description: Gives access to all DesignCore features.
+    default: op
+    children:
+      designcore.admin: true
+      designcore.mutechat: true
+      designcore.mutechat.bypass: true
+      designcore.spym: true
+  designcore.admin:
+    description: Manage prefix and suffix groups.
+    default: op
+  designcore.mutechat:
+    description: Mute public chat.
+    default: op
+  designcore.mutechat.bypass:
+    description: Bypass mutechat restrictions.
+    default: op
+  designcore.spym:
+    description: Spy on player private messages.
+    default: op
