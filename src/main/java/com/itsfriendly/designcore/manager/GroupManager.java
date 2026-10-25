@@ -6,6 +6,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
@@ -34,7 +36,20 @@ public class GroupManager {
                 String prefix = section.getString(key + ".prefix", "");
                 String suffix = section.getString(key + ".suffix", "");
                 groups.put(key.toLowerCase(), new GroupData(key, prefix, suffix));
+                registerGroupPermission(key.toLowerCase());
             }
+        }
+    }
+
+    private void registerGroupPermission(String groupName) {
+        String permName = "designcore.group." + groupName.toLowerCase();
+        Permission perm = Bukkit.getPluginManager().getPermission(permName);
+        if (perm == null) {
+            // PermissionDefault.FALSE prevents OP players from getting this permission by default
+            perm = new Permission(permName, "Access to " + groupName + " design group", PermissionDefault.FALSE);
+            Bukkit.getPluginManager().addPermission(perm);
+        } else {
+            perm.setDefault(PermissionDefault.FALSE);
         }
     }
 
@@ -51,6 +66,7 @@ public class GroupManager {
         plugin.saveConfig();
 
         groups.put(key, new GroupData(key, "", ""));
+        registerGroupPermission(key);
         return true;
     }
 
@@ -82,11 +98,22 @@ public class GroupManager {
     }
 
     public GroupData getPlayerGroup(Player player) {
+        // 1. Check if the player has an explicit group permission assigned to them
         for (GroupData data : groups.values()) {
+            if (data.name().equalsIgnoreCase("default") || data.name().equalsIgnoreCase("admin")) {
+                continue;
+            }
             if (player.hasPermission("designcore.group." + data.name().toLowerCase())) {
                 return data;
             }
         }
+
+        // 2. If no custom group was explicitly assigned, give OP the admin group
+        if (player.isOp() && groups.containsKey("admin")) {
+            return groups.get("admin");
+        }
+
+        // 3. Fallback to default group
         return groups.getOrDefault("default", new GroupData("default", "", ""));
     }
 
