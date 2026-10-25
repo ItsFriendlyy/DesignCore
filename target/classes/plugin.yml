@@ -3,33 +3,33 @@ version: '1.0.0'
 main: com.itsfriendly.designcore.DesignCore
 api-version: '1.20'
 author: ItsFriendly
-description: Complete chat formatting, nametags, groups, friends, and PM system[cite: 1, 2].
+description: Complete chat formatting, nametags, groups, friends, and PM system.
 
 commands:
   design:
-    description: Main administrative command for group and prefix configuration[cite: 1].
+    description: Main administrative command for group and prefix configuration.
     permission: designcore.admin
   mutechat:
-    description: Toggles global public chat[cite: 1].
+    description: Toggles global public chat.
     permission: designcore.mutechat
   msg:
-    description: Send a private direct message to a player[cite: 1].
+    description: Send a private direct message to a player.
     aliases: [tell, w]
   reply:
-    description: Reply to the last received direct message[cite: 1].
+    description: Reply to the last received direct message.
     aliases: [r]
   friend:
-    description: Manage friend requests and list friends[cite: 1].
+    description: Manage friend requests and list friends.
     aliases: [f]
   pmsettings:
-    description: Open GUI settings for direct messages and mutes[cite: 1].
+    description: Open GUI settings for direct messages and mutes.
   spym:
-    description: Toggle staff spy to monitor private direct messages[cite: 1].
+    description: Toggle staff spy to monitor private direct messages.
     permission: designcore.spym
 
 permissions:
   designcore.*:
-    description: Gives access to all DesignCore administrative features[cite: 2].
+    description: Gives access to all DesignCore administrative features.
     default: op
     children:
       designcore.admin: true
@@ -37,14 +37,14 @@ permissions:
       designcore.mutechat.bypass: true
       designcore.spym: true
   designcore.admin:
-    description: Manage prefix and suffix groups[cite: 1, 2].
+    description: Manage prefix and suffix groups.
     default: op
   designcore.mutechat:
-    description: Mute public chat[cite: 1, 2].
+    description: Mute public chat.
     default: op
   designcore.mutechat.bypass:
-    description: Bypass mutechat restrictions[cite: 1].
+    description: Bypass mutechat restrictions.
     default: op
   designcore.spym:
-    description: Spy on player private messages[cite: 1, 2].
+    description: Spy on player private messages.
     default: op

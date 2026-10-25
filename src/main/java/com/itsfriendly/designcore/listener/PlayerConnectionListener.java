@@ -10,6 +10,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 
 public class PlayerConnectionListener implements Listener {
 
@@ -19,34 +21,36 @@ public class PlayerConnectionListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
 
-        // تأخير بمقدار 1 Tick لضمان تحميل صلاحيات اللاعب والـ OP بالكامل
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
-
-            plugin.getGroupManager().applyDisplay(player);
-
-            // تعديل رسالة الدخول لتتوافق مع البادئة واللون الجديد
-            GroupManager.GroupData group = plugin.getGroupManager().getPlayerGroup(player);
-            String rawPrefix = group.prefix();
-            String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
-            if (lastColors.isEmpty()) {
-                lastColors = "§f";
+        // Clear existing team entries to prevent stale prefix caching
+        for (Team t : board.getTeams()) {
+            if (t.hasEntry(player.getName())) {
+                t.removeEntry(player.getName());
             }
+        }
 
-            boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
-            String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
+        plugin.getGroupManager().applyDisplay(player);
 
-            Component customJoinMsg = Component.empty()
-                    .append(DesignCore.color(rawPrefix))
-                    .append(spacer.isEmpty() ? Component.empty() : Component.text(spacer))
-                    .append(DesignCore.color(lastColors + player.getName()))
-                    .append(DesignCore.color(" &ejoined the game"));
+        GroupManager.GroupData group = plugin.getGroupManager().getPlayerGroup(player);
+        String rawPrefix = group.prefix();
+        String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
+        if (lastColors.isEmpty()) {
+            lastColors = "§f";
+        }
 
-            event.joinMessage(customJoinMsg);
-        }, 1L);
+        boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
+        String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
+
+        Component customJoinMsg = Component.empty()
+                .append(DesignCore.color(rawPrefix))
+                .append(spacer.isEmpty() ? Component.empty() : Component.text(spacer))
+                .append(DesignCore.color(lastColors + player.getName()))
+                .append(DesignCore.color(" &ejoined the game"));
+
+        event.joinMessage(customJoinMsg);
     }
 }
