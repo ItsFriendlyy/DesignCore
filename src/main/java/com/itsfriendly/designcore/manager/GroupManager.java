@@ -45,8 +45,7 @@ public class GroupManager {
         String permName = "designcore.group." + groupName.toLowerCase();
         Permission perm = Bukkit.getPluginManager().getPermission(permName);
         if (perm == null) {
-            // PermissionDefault.FALSE يمنع لاعبي الـ OP من أخذ الصلاحية تلقائياً
-            perm = new Permission(permName, "Access to " + groupName + " design group", PermissionDefault.FALSE);
+            perm = new Permission(permName, "Access to " + groupName + " group", PermissionDefault.FALSE);
             Bukkit.getPluginManager().addPermission(perm);
         } else {
             perm.setDefault(PermissionDefault.FALSE);
@@ -98,17 +97,21 @@ public class GroupManager {
     }
 
     public GroupData getPlayerGroup(Player player) {
-        // 1. التحقق أولاً مما إذا كان لدى اللاعب صلاحية رتبة مخصصة محددة صراحةً
+        // 1. Check if the player has an EXPLICIT assigned group permission (not via op wildcard)
         for (GroupData data : groups.values()) {
-            if (data.name().equalsIgnoreCase("default") || data.name().equalsIgnoreCase("op")) {
+            String groupKey = data.name().toLowerCase();
+            if (groupKey.equals("default") || groupKey.equals("op")) {
                 continue;
             }
-            if (player.hasPermission("designcore.group." + data.name().toLowerCase())) {
+
+            String perm = "designcore.group." + groupKey;
+            // Checks for explicit permissions set on player or permission plugins
+            if (player.isPermissionSet(perm) && player.hasPermission(perm)) {
                 return data;
             }
         }
 
-        // 2. إذا كان اللاعب OP ولم يتم تخصيص رتبة يدوية له، يُعطى بادئة الـ OP
+        // 2. If the player is an OP and hasn't been explicitly assigned a custom group
         if (player.isOp()) {
             if (groups.containsKey("op")) {
                 return groups.get("op");
@@ -116,8 +119,8 @@ public class GroupManager {
             return new GroupData("op", "&4&lOP - ", "");
         }
 
-        // 3. الرجوع لرتبة default لباقي اللاعبين
-        return groups.getOrDefault("default", new GroupData("default", "", ""));
+        // 3. Fallback to default
+        return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
     }
 
     public void applyDisplay(Player player) {
@@ -125,13 +128,11 @@ public class GroupManager {
         String rawPrefix = group.prefix();
         String rawSuffix = group.suffix();
 
-        // استخراج كود اللون الأخير من البادئة ليكمل مع اسم اللاعب
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
         if (lastColors.isEmpty()) {
             lastColors = "§f";
         }
 
-        // حساب المسافات
         boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
         String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
 
@@ -144,7 +145,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. قائمة اللاعبين (Tab List)
+        // 1. Tab List Update
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -153,8 +154,13 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. علامة الاسم فوق الرأس (Nametag) عبر فرق الـ Scoreboard
+        // 2. Nametag Update (Remove from previous teams first so it never gets stuck on Member)
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        Team oldTeam = board.getEntryTeam(player.getName());
+        if (oldTeam != null) {
+            oldTeam.removeEntry(player.getName());
+        }
+
         String teamName = "dc_" + group.name();
         if (teamName.length() > 16) {
             teamName = teamName.substring(0, 16);
@@ -168,7 +174,6 @@ public class GroupManager {
         team.prefix(tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer)));
         team.suffix(suffixComponent);
 
-        // توريث اللون للـ Nametag
         ChatColor teamColor = null;
         for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
             if (lastColors.charAt(i) == '§') {
@@ -185,8 +190,6 @@ public class GroupManager {
             } catch (Exception ignored) {}
         }
 
-        if (!team.hasEntry(player.getName())) {
-            team.addEntry(player.getName());
-        }
+        team.addEntry(player.getName());
     }
 }
