@@ -1,26 +1,29 @@
 package com.itsfriendly.designcore.command;
 
 import com.itsfriendly.designcore.DesignCore;
+import com.itsfriendly.designcore.manager.FriendManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-public class PMSettingsCommand implements CommandExecutor {
+public class PMSettingsCommand implements TabExecutor {
 
     private final DesignCore plugin;
 
@@ -39,16 +42,43 @@ public class PMSettingsCommand implements CommandExecutor {
         return true;
     }
 
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        return Collections.emptyList();
+    }
+
     public static void openMainGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, Component.text("PM Settings"));
-        boolean friendsOnly = DesignCore.getInstance().getFriendManager().isFriendsOnly(player.getUniqueId());
+        FriendManager.PrivacyMode mode = DesignCore.getInstance().getFriendManager().getPrivacyMode(player.getUniqueId());
 
-        ItemStack toggleItem = new ItemStack(friendsOnly ? Material.ENDER_EYE : Material.ENDER_PEARL);
+        Material icon;
+        String statusText;
+        switch (mode) {
+            case EVERYONE -> {
+                icon = Material.EMERALD;
+                statusText = "&aEveryone";
+            }
+            case FRIENDS -> {
+                icon = Material.ENDER_EYE;
+                statusText = "&eFriends Only";
+            }
+            case NO_ONE -> {
+                icon = Material.REDSTONE;
+                statusText = "&cNo One";
+            }
+            default -> {
+                icon = Material.EMERALD;
+                statusText = "&aEveryone";
+            }
+        }
+
+        ItemStack toggleItem = new ItemStack(icon);
         ItemMeta toggleMeta = toggleItem.getItemMeta();
         toggleMeta.displayName(DesignCore.color("&e&lDirect Message Privacy"));
         List<Component> lore = new ArrayList<>();
-        lore.add(DesignCore.color("&7Current Status: " + (friendsOnly ? "&aFriends Only" : "&bEveryone")));
-        lore.add(DesignCore.color("&eClick to toggle!"));
+        lore.add(DesignCore.color("&7Current Status: " + statusText));
+        lore.add(DesignCore.color("&7Cycle: &aEveryone &7-> &eFriends &7-> &cNo One"));
+        lore.add(DesignCore.color("&eClick to cycle setting!"));
         toggleMeta.lore(lore);
         toggleItem.setItemMeta(toggleMeta);
 

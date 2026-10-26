@@ -39,36 +39,46 @@ public class DesignCommand implements TabExecutor {
             return true;
         }
 
-        // /design group <group> add/edit prefix/suffix <value>
-        if (args.length >= 5 && args[0].equalsIgnoreCase("group")) {
+        // /design group ...
+        if (args.length >= 4 && args[0].equalsIgnoreCase("group")) {
             String groupName;
             String action;
             String type;
             int valueStartIndex;
 
-            // Supports both:
-            // /design group <name> edit/add prefix/suffix <value>
-            // /design group edit/add <name> prefix/suffix <value>
-            if (args[1].equalsIgnoreCase("edit") || args[1].equalsIgnoreCase("add")) {
-                action = args[1];
+            // Supports:
+            // /design group <groupname> <action> <prefix|suffix> [value]
+            // /design group <action> <groupname> <prefix|suffix> [value]
+            if (args[1].equalsIgnoreCase("edit") || args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("delete")) {
+                action = args[1].toLowerCase();
                 groupName = args[2];
                 type = args[3].toLowerCase();
                 valueStartIndex = 4;
             } else {
                 groupName = args[1];
-                action = args[2];
+                action = args[2].toLowerCase();
                 type = args[3].toLowerCase();
                 valueStartIndex = 4;
             }
 
-            if (action.equalsIgnoreCase("edit") || action.equalsIgnoreCase("add")) {
+            // /design group <groupname> delete prefix|suffix
+            if (action.equals("delete")) {
+                if (plugin.getGroupManager().deleteGroupAttribute(groupName, type)) {
+                    sender.sendMessage(DesignCore.color("&aSuccessfully deleted &e" + type + "&a for group &e" + groupName + "&a!"));
+                } else {
+                    sender.sendMessage(DesignCore.color("&cGroup not found or invalid type! Use 'prefix' or 'suffix'."));
+                }
+                return true;
+            }
+
+            // /design group <groupname> edit|add prefix|suffix <value>
+            if ((action.equals("edit") || action.equals("add")) && args.length >= 5) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = valueStartIndex; i < args.length; i++) {
                     sb.append(args[i]).append(i == args.length - 1 ? "" : " ");
                 }
                 String value = sb.toString();
 
-                // Strip outer wrapping quotes if the user typed them to preserve trailing spaces
                 if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
                     if (value.length() >= 2) {
                         value = value.substring(1, value.length() - 1);
@@ -88,6 +98,7 @@ public class DesignCommand implements TabExecutor {
         sender.sendMessage(DesignCore.color("&e/design create group <name>"));
         sender.sendMessage(DesignCore.color("&e/design group <name> edit prefix <value>"));
         sender.sendMessage(DesignCore.color("&e/design group <name> edit suffix <value>"));
+        sender.sendMessage(DesignCore.color("&e/design group <name> delete prefix|suffix"));
         return true;
     }
 
@@ -108,10 +119,10 @@ public class DesignCommand implements TabExecutor {
                 return StringUtil.copyPartialMatches(args[1], Collections.singletonList("group"), completions);
             }
             if (args[0].equalsIgnoreCase("group")) {
-                // Suggest both group names and syntax keywords
                 List<String> options = new ArrayList<>(plugin.getGroupManager().getGroupNames());
                 options.add("edit");
                 options.add("add");
+                options.add("delete");
                 return StringUtil.copyPartialMatches(args[1], options, completions);
             }
         }
@@ -121,10 +132,10 @@ public class DesignCommand implements TabExecutor {
                 return Collections.emptyList();
             }
             if (args[0].equalsIgnoreCase("group")) {
-                if (args[1].equalsIgnoreCase("edit") || args[1].equalsIgnoreCase("add")) {
+                if (args[1].equalsIgnoreCase("edit") || args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("delete")) {
                     return StringUtil.copyPartialMatches(args[2], plugin.getGroupManager().getGroupNames(), completions);
                 } else {
-                    return StringUtil.copyPartialMatches(args[2], Arrays.asList("edit", "add"), completions);
+                    return StringUtil.copyPartialMatches(args[2], Arrays.asList("edit", "add", "delete"), completions);
                 }
             }
         }
@@ -135,7 +146,6 @@ public class DesignCommand implements TabExecutor {
             }
         }
 
-        // No auto-completion for argument 5 onwards so you type your prefix/suffix cleanly
         return Collections.emptyList();
     }
 }

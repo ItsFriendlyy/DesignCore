@@ -2,10 +2,11 @@ package com.itsfriendly.designcore.listener;
 
 import com.itsfriendly.designcore.DesignCore;
 import com.itsfriendly.designcore.command.PMSettingsCommand;
+import com.itsfriendly.designcore.manager.FriendManager;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
@@ -21,7 +22,7 @@ public class GUIListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onClick(InventoryClickEvent event) {
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
         if (!title.equals("PM Settings") && !title.equals("Friend List & Mutes")) return;
@@ -33,9 +34,13 @@ public class GUIListener implements Listener {
 
         if (title.equals("PM Settings")) {
             if (event.getRawSlot() == 11) {
-                boolean current = plugin.getFriendManager().isFriendsOnly(player.getUniqueId());
-                plugin.getFriendManager().setFriendsOnly(player.getUniqueId(), !current);
-                player.sendMessage(DesignCore.color("&aUpdated PM permissions to: " + (!current ? "&eFriends Only" : "&eEveryone")));
+                FriendManager.PrivacyMode newMode = plugin.getFriendManager().cyclePrivacyMode(player.getUniqueId());
+                String modeLabel = switch (newMode) {
+                    case EVERYONE -> "&aEveryone";
+                    case FRIENDS -> "&eFriends Only";
+                    case NO_ONE -> "&cNo One";
+                };
+                player.sendMessage(DesignCore.color("&aUpdated PM privacy to: " + modeLabel));
                 PMSettingsCommand.openMainGUI(player);
             } else if (event.getRawSlot() == 15) {
                 PMSettingsCommand.openFriendsGUI(player);

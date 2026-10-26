@@ -1,16 +1,22 @@
 package com.itsfriendly.designcore.command;
 
 import com.itsfriendly.designcore.DesignCore;
+import com.itsfriendly.designcore.manager.FriendManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
+import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
-public class MsgCommand implements CommandExecutor {
+public class MsgCommand implements TabExecutor {
 
     private final DesignCore plugin;
 
@@ -41,7 +47,14 @@ public class MsgCommand implements CommandExecutor {
             return true;
         }
 
-        if (plugin.getFriendManager().isFriendsOnly(target.getUniqueId()) && !plugin.getFriendManager().getFriends(target.getUniqueId()).contains(player.getUniqueId())) {
+        FriendManager.PrivacyMode privacyMode = plugin.getFriendManager().getPrivacyMode(target.getUniqueId());
+
+        if (privacyMode == FriendManager.PrivacyMode.NO_ONE) {
+            player.sendMessage(DesignCore.color("&cThis player has disabled private messages."));
+            return true;
+        }
+
+        if (privacyMode == FriendManager.PrivacyMode.FRIENDS && !plugin.getFriendManager().getFriends(target.getUniqueId()).contains(player.getUniqueId())) {
             player.sendMessage(DesignCore.color("&cThis player only accepts private messages from friends."));
             return true;
         }
@@ -71,5 +84,19 @@ public class MsgCommand implements CommandExecutor {
         }
 
         return true;
+    }
+
+    @Override
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (args.length == 1) {
+            List<String> names = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!p.getName().equalsIgnoreCase(sender.getName())) {
+                    names.add(p.getName());
+                }
+            }
+            return StringUtil.copyPartialMatches(args[0], names, new ArrayList<>());
+        }
+        return Collections.emptyList();
     }
 }

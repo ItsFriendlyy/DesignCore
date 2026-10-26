@@ -90,14 +90,18 @@ public class GroupManager {
         plugin.saveConfig();
         groups.put(key, new GroupData(key, prefix, suffix));
 
+        // Instantly re-apply display for all online players
         for (Player player : Bukkit.getOnlinePlayers()) {
             applyDisplay(player);
         }
         return true;
     }
 
+    public boolean deleteGroupAttribute(String name, String type) {
+        return editGroup(name, type, "");
+    }
+
     public GroupData getPlayerGroup(Player player) {
-        // 1. Check if the player has an EXPLICIT assigned group permission (not via op wildcard)
         for (GroupData data : groups.values()) {
             String groupKey = data.name().toLowerCase();
             if (groupKey.equals("default") || groupKey.equals("op")) {
@@ -105,13 +109,11 @@ public class GroupManager {
             }
 
             String perm = "designcore.group." + groupKey;
-            // Checks for explicit permissions set on player or permission plugins
             if (player.isPermissionSet(perm) && player.hasPermission(perm)) {
                 return data;
             }
         }
 
-        // 2. If the player is an OP and hasn't been explicitly assigned a custom group
         if (player.isOp()) {
             if (groups.containsKey("op")) {
                 return groups.get("op");
@@ -119,7 +121,6 @@ public class GroupManager {
             return new GroupData("op", "&4&lOP - ", "");
         }
 
-        // 3. Fallback to default
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
     }
 
@@ -145,7 +146,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab List Update
+        // 1. Tab list update
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -154,7 +155,7 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Nametag Update (Remove from previous teams first so it never gets stuck on Member)
+        // 2. Nametag & Scoreboard Teams update
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         Team oldTeam = board.getEntryTeam(player.getName());
         if (oldTeam != null) {
@@ -171,7 +172,8 @@ public class GroupManager {
             team = board.registerNewTeam(teamName);
         }
 
-        team.prefix(tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer)));
+        Component teamPrefix = rawPrefix.isEmpty() ? Component.empty() : tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer));
+        team.prefix(teamPrefix);
         team.suffix(suffixComponent);
 
         ChatColor teamColor = null;
@@ -188,8 +190,13 @@ public class GroupManager {
             try {
                 team.setColor(teamColor);
             } catch (Exception ignored) {}
+        } else {
+            team.setColor(ChatColor.WHITE);
         }
 
         team.addEntry(player.getName());
+
+        // Re-send player scoreboard to enforce instant client-side nametag update
+        player.setScoreboard(board);
     }
 }

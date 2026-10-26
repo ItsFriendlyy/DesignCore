@@ -1,5 +1,5 @@
 name: DesignCore
-version: '1.0.0'
+version: '1.0.1'
 main: com.itsfriendly.designcore.DesignCore
 api-version: '1.20'
 author: ItsFriendly

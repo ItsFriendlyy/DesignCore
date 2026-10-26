@@ -9,13 +9,19 @@ import java.util.*;
 
 public class FriendManager {
 
+    public enum PrivacyMode {
+        EVERYONE,
+        FRIENDS,
+        NO_ONE
+    }
+
     private final DesignCore plugin;
     private final File dataFile;
     private final YamlConfiguration dataConfig;
 
     private final Map<UUID, Set<UUID>> friends = new HashMap<>();
     private final Map<UUID, Set<UUID>> mutedSenders = new HashMap<>();
-    private final Map<UUID, Boolean> friendsOnlyPM = new HashMap<>();
+    private final Map<UUID, PrivacyMode> privacyModes = new HashMap<>();
     private final Map<UUID, UUID> lastMessaged = new HashMap<>();
 
     public FriendManager(DesignCore plugin) {
@@ -44,7 +50,12 @@ public class FriendManager {
             for (String m : rawMutes) muteList.add(UUID.fromString(m));
             mutedSenders.put(id, muteList);
 
-            friendsOnlyPM.put(id, dataConfig.getBoolean(key + ".friends-only", false));
+            String modeStr = dataConfig.getString(key + ".privacy-mode", "EVERYONE");
+            try {
+                privacyModes.put(id, PrivacyMode.valueOf(modeStr.toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                privacyModes.put(id, PrivacyMode.EVERYONE);
+            }
         }
     }
 
@@ -59,8 +70,8 @@ public class FriendManager {
             for (UUID uid : entry.getValue()) list.add(uid.toString());
             dataConfig.set(entry.getKey() + ".muted", list);
         }
-        for (Map.Entry<UUID, Boolean> entry : friendsOnlyPM.entrySet()) {
-            dataConfig.set(entry.getKey() + ".friends-only", entry.getValue());
+        for (Map.Entry<UUID, PrivacyMode> entry : privacyModes.entrySet()) {
+            dataConfig.set(entry.getKey() + ".privacy-mode", entry.getValue().name());
         }
         try {
             dataConfig.save(dataFile);
@@ -78,12 +89,19 @@ public class FriendManager {
         return friends.getOrDefault(player, Collections.emptySet());
     }
 
-    public boolean isFriendsOnly(UUID player) {
-        return friendsOnlyPM.getOrDefault(player, false);
+    public PrivacyMode getPrivacyMode(UUID player) {
+        return privacyModes.getOrDefault(player, PrivacyMode.EVERYONE);
     }
 
-    public void setFriendsOnly(UUID player, boolean value) {
-        friendsOnlyPM.put(player, value);
+    public PrivacyMode cyclePrivacyMode(UUID player) {
+        PrivacyMode current = getPrivacyMode(player);
+        PrivacyMode next = switch (current) {
+            case EVERYONE -> PrivacyMode.FRIENDS;
+            case FRIENDS -> PrivacyMode.NO_ONE;
+            case NO_ONE -> PrivacyMode.EVERYONE;
+        };
+        privacyModes.put(player, next);
+        return next;
     }
 
     public boolean isMuted(UUID receiver, UUID sender) {
