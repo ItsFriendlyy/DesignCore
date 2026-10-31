@@ -22,6 +22,8 @@ commands:
   friend:
     description: Manage friend requests and list friends.
     aliases: [f]
+  unfriend:
+    description: Remove a friend.
   pmsettings:
     description: Open GUI settings for direct messages and mutes.
   spym:

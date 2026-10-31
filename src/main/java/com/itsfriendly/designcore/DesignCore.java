@@ -48,6 +48,8 @@ public final class DesignCore extends JavaPlugin {
         registerCommand("friend", new FriendCommand(this));
         registerCommand("pmsettings", new PMSettingsCommand(this));
         registerCommand("spym", new SpyMCommand(this));
+        registerCommand("friend", new FriendCommand(this));
+        registerCommand("unfriend", new FriendCommand(this));
 
         // Hook into PlaceholderAPI if present
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
