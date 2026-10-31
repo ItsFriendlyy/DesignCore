@@ -6,6 +6,7 @@ import io.papermc.paper.chat.ChatRenderer;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,8 +14,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.regex.Pattern;
+
 public class ChatListener implements Listener {
 
+    private static final Pattern COLOR_PATTERN = Pattern.compile("(?i)&[0-9A-FK-OR]");
     private final DesignCore plugin;
 
     public ChatListener(DesignCore plugin) {
@@ -41,14 +45,27 @@ public class ChatListener implements Listener {
         }
 
         boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
-        String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
+        final String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
 
-        Component prefixComponent = DesignCore.color(rawPrefix);
-        Component playerComponent = DesignCore.color(lastColors + player.getName());
+        final Component prefixComponent = DesignCore.color(rawPrefix);
+        final Component playerComponent = DesignCore.color(lastColors + player.getName());
 
-        Component suffixComponent = rawSuffix.isEmpty()
+        final Component suffixComponent = rawSuffix.isEmpty()
                 ? Component.empty()
                 : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix);
+
+        // Extract raw text message
+        String rawText = PlainTextComponentSerializer.plainText().serialize(event.message());
+
+        final Component formattedMessage;
+        if (player.hasPermission("designcore.colorchat")) {
+            // Translate color codes for permitted players
+            formattedMessage = DesignCore.color(rawText);
+        } else {
+            // Strip any color codes like &4, &e, &l so normal players chat in plain white
+            String stripped = COLOR_PATTERN.matcher(rawText).replaceAll("");
+            formattedMessage = Component.text(stripped);
+        }
 
         event.renderer(new ChatRenderer() {
             @Override
@@ -58,8 +75,8 @@ public class ChatListener implements Listener {
                         .append(spacer.isEmpty() ? Component.empty() : Component.text(spacer))
                         .append(playerComponent)
                         .append(suffixComponent)
-                        .append(DesignCore.color("&7: &r"))
-                        .append(message);
+                        .append(DesignCore.color("&7: &f"))
+                        .append(formattedMessage);
             }
         });
     }

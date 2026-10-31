@@ -10,8 +10,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
 
 public class PlayerConnectionListener implements Listener {
 
@@ -24,17 +22,19 @@ public class PlayerConnectionListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
 
-        // Clear existing team entries to prevent stale prefix caching
-        for (Team t : board.getTeams()) {
-            if (t.hasEntry(player.getName())) {
-                t.removeEntry(player.getName());
-            }
+        // 1. Give joining player their private scoreboard (never using main scoreboard)
+        plugin.getGroupManager().setupPlayerScoreboard(player);
+
+        // 2. Synchronize all current online players' nametags onto the new player's board
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            plugin.getGroupManager().applyDisplay(online);
         }
 
+        // 3. Apply display for the joining player
         plugin.getGroupManager().applyDisplay(player);
 
+        // 4. Custom formatted join message
         GroupManager.GroupData group = plugin.getGroupManager().getPlayerGroup(player);
         String rawPrefix = group.prefix();
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));

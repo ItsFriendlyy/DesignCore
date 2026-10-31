@@ -1,9 +1,10 @@
 name: DesignCore
-version: '1.0.1'
+version: '1.0.2'
 main: com.itsfriendly.designcore.DesignCore
 api-version: '1.20'
 author: ItsFriendly
 description: Complete chat formatting, nametags, groups, friends, and PM system.
+softdepend: [PlaceholderAPI]
 
 commands:
   design:
@@ -36,6 +37,7 @@ permissions:
       designcore.mutechat: true
       designcore.mutechat.bypass: true
       designcore.spym: true
+      designcore.colorchat: true
   designcore.admin:
     description: Manage prefix and suffix groups.
     default: op
@@ -47,4 +49,7 @@ permissions:
     default: op
   designcore.spym:
     description: Spy on player private messages.
+    default: op
+  designcore.colorchat:
+    description: Allows using color codes (&) in public chat messages.
     default: op

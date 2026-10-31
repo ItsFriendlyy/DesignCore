@@ -90,8 +90,9 @@ public class GroupManager {
         plugin.saveConfig();
         groups.put(key, new GroupData(key, prefix, suffix));
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            applyDisplay(player);
+        // Re-render display for all online players immediately
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            applyDisplay(online);
         }
         return true;
     }
@@ -123,10 +124,21 @@ public class GroupManager {
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
     }
 
+    /**
+     * Initializes a private scoreboard for the player so vanilla's /team command remains empty.
+     */
+    public void setupPlayerScoreboard(Player player) {
+        if (player.getScoreboard().equals(Bukkit.getScoreboardManager().getMainScoreboard())) {
+            player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
+        }
+    }
+
     public void applyDisplay(Player player) {
-        GroupData group = getPlayerGroup(player);
-        String rawPrefix = group.prefix();
-        String rawSuffix = group.suffix();
+        setupPlayerScoreboard(player);
+
+        GroupData targetGroup = getPlayerGroup(player);
+        String rawPrefix = targetGroup.prefix();
+        String rawSuffix = targetGroup.suffix();
 
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
         if (lastColors.isEmpty()) {
@@ -145,7 +157,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // Tab list display (works without creating scoreboard teams)
+        // 1. Tab List formatting
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -153,10 +165,60 @@ public class GroupManager {
                 .append(tabName)
                 .append(suffixComponent)
         );
+
+        // 2. Nametag display synced to EVERY online player's isolated scoreboard
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            setupPlayerScoreboard(viewer);
+            updateTeamOnScoreboard(viewer.getScoreboard(), player, targetGroup, tabPrefix, suffixComponent, lastColors, spacer);
+        }
+    }
+
+    private void updateTeamOnScoreboard(Scoreboard board, Player subject, GroupData group, Component tabPrefix, Component suffixComponent, String lastColors, String spacer) {
+        // Remove player from previous team on this board
+        Team oldTeam = board.getEntryTeam(subject.getName());
+        if (oldTeam != null) {
+            oldTeam.removeEntry(subject.getName());
+        }
+
+        String teamName = "dc_" + group.name();
+        if (teamName.length() > 16) {
+            teamName = teamName.substring(0, 16);
+        }
+
+        Team team = board.getTeam(teamName);
+        if (team == null) {
+            team = board.registerNewTeam(teamName);
+        }
+
+        Component teamPrefix = group.prefix().isEmpty() ? Component.empty() : tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer));
+        team.prefix(teamPrefix);
+        team.suffix(suffixComponent);
+
+        ChatColor teamColor = null;
+        for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
+            if (lastColors.charAt(i) == '§') {
+                ChatColor c = ChatColor.getByChar(lastColors.charAt(i + 1));
+                if (c != null && c.isColor()) {
+                    teamColor = c;
+                    break;
+                }
+            }
+        }
+        if (teamColor != null) {
+            try {
+                team.setColor(teamColor);
+            } catch (Exception ignored) {}
+        } else {
+            team.setColor(ChatColor.WHITE);
+        }
+
+        if (!team.hasEntry(subject.getName())) {
+            team.addEntry(subject.getName());
+        }
     }
 
     /**
-     * Clean up any residual 'dc_' teams from the main scoreboard
+     * Purges any old dc_ teams that were written to the main server scoreboard.
      */
     public void cleanupMainScoreboard() {
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
