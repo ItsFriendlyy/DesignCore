@@ -12,4 +12,5 @@
 /workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/ReplyCommand.java
 /workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/FriendCommand.java
 /workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/DesignCore.java
+/workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/manager/DesignCoreExpansion.java
 /workspaces/DesignCore/src/main/java/com/itsfriendly/designcore/command/MuteChatCommand.java

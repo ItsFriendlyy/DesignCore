@@ -24,6 +24,9 @@ public class FriendManager {
     private final Map<UUID, PrivacyMode> privacyModes = new HashMap<>();
     private final Map<UUID, UUID> lastMessaged = new HashMap<>();
 
+    // Tracks incoming pending requests: Target UUID -> Set of Sender UUIDs
+    private final Map<UUID, Set<UUID>> incomingRequests = new HashMap<>();
+
     public FriendManager(DesignCore plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "userdata.yml");
@@ -80,9 +83,34 @@ public class FriendManager {
         }
     }
 
-    public boolean addFriend(UUID player, UUID target) {
-        friends.putIfAbsent(player, new HashSet<>());
-        return friends.get(player).add(target);
+    public boolean areFriends(UUID p1, UUID p2) {
+        return friends.getOrDefault(p1, Collections.emptySet()).contains(p2);
+    }
+
+    public void sendRequest(UUID sender, UUID target) {
+        incomingRequests.computeIfAbsent(target, k -> new HashSet<>()).add(sender);
+    }
+
+    public boolean hasRequestFrom(UUID target, UUID sender) {
+        return incomingRequests.getOrDefault(target, Collections.emptySet()).contains(sender);
+    }
+
+    public void removeRequest(UUID target, UUID sender) {
+        Set<UUID> requests = incomingRequests.get(target);
+        if (requests != null) {
+            requests.remove(sender);
+            if (requests.isEmpty()) {
+                incomingRequests.remove(target);
+            }
+        }
+    }
+
+    public void makeFriends(UUID p1, UUID p2) {
+        friends.computeIfAbsent(p1, k -> new HashSet<>()).add(p2);
+        friends.computeIfAbsent(p2, k -> new HashSet<>()).add(p1);
+        removeRequest(p1, p2);
+        removeRequest(p2, p1);
+        saveData();
     }
 
     public Set<UUID> getFriends(UUID player) {

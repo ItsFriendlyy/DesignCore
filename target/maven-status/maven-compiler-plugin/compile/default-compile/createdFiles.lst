@@ -15,6 +15,7 @@ com/itsfriendly/designcore/manager/GroupManager$GroupData.class
 com/itsfriendly/designcore/command/PMSettingsCommand$1.class
 com/itsfriendly/designcore/command/PMSettingsCommand.class
 com/itsfriendly/designcore/command/MsgCommand.class
+com/itsfriendly/designcore/manager/DesignCoreExpansion.class
 com/itsfriendly/designcore/manager/ChatManager.class
 com/itsfriendly/designcore/listener/GUIListener.class
 com/itsfriendly/designcore/manager/GroupManager.class

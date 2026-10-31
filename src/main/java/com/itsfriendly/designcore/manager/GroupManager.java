@@ -90,7 +90,6 @@ public class GroupManager {
         plugin.saveConfig();
         groups.put(key, new GroupData(key, prefix, suffix));
 
-        // Instantly re-apply display for all online players
         for (Player player : Bukkit.getOnlinePlayers()) {
             applyDisplay(player);
         }
@@ -146,7 +145,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab list update
+        // Tab list display (works without creating scoreboard teams)
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -154,49 +153,17 @@ public class GroupManager {
                 .append(tabName)
                 .append(suffixComponent)
         );
+    }
 
-        // 2. Nametag & Scoreboard Teams update
+    /**
+     * Clean up any residual 'dc_' teams from the main scoreboard
+     */
+    public void cleanupMainScoreboard() {
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-        Team oldTeam = board.getEntryTeam(player.getName());
-        if (oldTeam != null) {
-            oldTeam.removeEntry(player.getName());
-        }
-
-        String teamName = "dc_" + group.name();
-        if (teamName.length() > 16) {
-            teamName = teamName.substring(0, 16);
-        }
-
-        Team team = board.getTeam(teamName);
-        if (team == null) {
-            team = board.registerNewTeam(teamName);
-        }
-
-        Component teamPrefix = rawPrefix.isEmpty() ? Component.empty() : tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer));
-        team.prefix(teamPrefix);
-        team.suffix(suffixComponent);
-
-        ChatColor teamColor = null;
-        for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
-            if (lastColors.charAt(i) == '§') {
-                ChatColor c = ChatColor.getByChar(lastColors.charAt(i + 1));
-                if (c != null && c.isColor()) {
-                    teamColor = c;
-                    break;
-                }
+        for (Team team : new ArrayList<>(board.getTeams())) {
+            if (team.getName().startsWith("dc_")) {
+                team.unregister();
             }
         }
-        if (teamColor != null) {
-            try {
-                team.setColor(teamColor);
-            } catch (Exception ignored) {}
-        } else {
-            team.setColor(ChatColor.WHITE);
-        }
-
-        team.addEntry(player.getName());
-
-        // Re-send player scoreboard to enforce instant client-side nametag update
-        player.setScoreboard(board);
     }
 }
