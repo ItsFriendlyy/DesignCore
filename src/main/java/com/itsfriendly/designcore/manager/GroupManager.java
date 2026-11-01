@@ -7,6 +7,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionAttachmentInfo;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -90,7 +91,6 @@ public class GroupManager {
         plugin.saveConfig();
         groups.put(key, new GroupData(key, prefix, suffix));
 
-        // Re-render display for all online players immediately
         for (Player online : Bukkit.getOnlinePlayers()) {
             applyDisplay(online);
         }
@@ -101,7 +101,26 @@ public class GroupManager {
         return editGroup(name, type, "");
     }
 
+    /**
+     * Finds the player's group by inspecting explicit permission entries first.
+     * This ensures that assigning a specific node like 'designcore.group.admin' in LuckPerms
+     * takes precedence over the wildcard '*' permission.
+     */
     public GroupData getPlayerGroup(Player player) {
+        // First Pass: Scan for an explicitly set permission string on the player
+        for (PermissionAttachmentInfo pai : player.getEffectivePermissions()) {
+            if (!pai.getValue()) continue;
+
+            String perm = pai.getPermission().toLowerCase();
+            if (perm.startsWith("designcore.group.")) {
+                String groupKey = perm.substring("designcore.group.".length());
+                if (groups.containsKey(groupKey) && !groupKey.equals("default") && !groupKey.equals("op")) {
+                    return groups.get(groupKey);
+                }
+            }
+        }
+
+        // Second Pass: Standard permission check (fallback for non-wildcard setups)
         for (GroupData data : groups.values()) {
             String groupKey = data.name().toLowerCase();
             if (groupKey.equals("default") || groupKey.equals("op")) {
@@ -109,11 +128,12 @@ public class GroupManager {
             }
 
             String perm = "designcore.group." + groupKey;
-            if (player.isPermissionSet(perm) && player.hasPermission(perm)) {
+            if (player.hasPermission(perm)) {
                 return data;
             }
         }
 
+        // Fallback for OP players
         if (player.isOp()) {
             if (groups.containsKey("op")) {
                 return groups.get("op");
@@ -121,12 +141,10 @@ public class GroupManager {
             return new GroupData("op", "&4&lOP - ", "");
         }
 
+        // Default group fallback
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
     }
 
-    /**
-     * Initializes a private scoreboard for the player so vanilla's /team command remains empty.
-     */
     public void setupPlayerScoreboard(Player player) {
         if (player.getScoreboard().equals(Bukkit.getScoreboardManager().getMainScoreboard())) {
             player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
@@ -157,7 +175,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab List formatting
+        // 1. Tab list display
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -166,7 +184,7 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Nametag display synced to EVERY online player's isolated scoreboard
+        // 2. Nametag display on isolated scoreboards across all online players
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             setupPlayerScoreboard(viewer);
             updateTeamOnScoreboard(viewer.getScoreboard(), player, targetGroup, tabPrefix, suffixComponent, lastColors, spacer);
@@ -174,7 +192,6 @@ public class GroupManager {
     }
 
     private void updateTeamOnScoreboard(Scoreboard board, Player subject, GroupData group, Component tabPrefix, Component suffixComponent, String lastColors, String spacer) {
-        // Remove player from previous team on this board
         Team oldTeam = board.getEntryTeam(subject.getName());
         if (oldTeam != null) {
             oldTeam.removeEntry(subject.getName());
@@ -217,9 +234,6 @@ public class GroupManager {
         }
     }
 
-    /**
-     * Purges any old dc_ teams that were written to the main server scoreboard.
-     */
     public void cleanupMainScoreboard() {
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         for (Team team : new ArrayList<>(board.getTeams())) {
