@@ -7,7 +7,6 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
-import org.bukkit.permissions.PermissionAttachmentInfo;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -102,38 +101,29 @@ public class GroupManager {
     }
 
     /**
-     * Finds the player's group by inspecting explicit permission entries first.
-     * This ensures that assigning a specific node like 'designcore.group.admin' in LuckPerms
-     * takes precedence over the wildcard '*' permission.
+     * Resolves the player group without getting fooled by wildcard '*'.
+     * Checks:
+     * 1. LuckPerms direct primary group or explicit permission nodes
+     * 2. Non-wildcard Bukkit permissions
+     * 3. OP / Default fallbacks
      */
     public GroupData getPlayerGroup(Player player) {
-        // First Pass: Scan for an explicitly set permission string on the player
-        for (PermissionAttachmentInfo pai : player.getEffectivePermissions()) {
-            if (!pai.getValue()) continue;
-
-            String perm = pai.getPermission().toLowerCase();
-            if (perm.startsWith("designcore.group.")) {
-                String groupKey = perm.substring("designcore.group.".length());
-                if (groups.containsKey(groupKey) && !groupKey.equals("default") && !groupKey.equals("op")) {
-                    return groups.get(groupKey);
-                }
-            }
+        // Step 1: Check LuckPerms explicitly if running
+        GroupData lpMatch = getLuckPermsGroup(player);
+        if (lpMatch != null) {
+            return lpMatch;
         }
 
-        // Second Pass: Standard permission check (fallback for non-wildcard setups)
+        // Step 2: Fallback for setups without LuckPerms
         for (GroupData data : groups.values()) {
             String groupKey = data.name().toLowerCase();
-            if (groupKey.equals("default") || groupKey.equals("op")) {
-                continue;
-            }
+            if (groupKey.equals("default") || groupKey.equals("op")) continue;
 
-            String perm = "designcore.group." + groupKey;
-            if (player.hasPermission(perm)) {
+            if (player.hasPermission("designcore.group." + groupKey)) {
                 return data;
             }
         }
 
-        // Fallback for OP players
         if (player.isOp()) {
             if (groups.containsKey("op")) {
                 return groups.get("op");
@@ -141,8 +131,52 @@ public class GroupManager {
             return new GroupData("op", "&4&lOP - ", "");
         }
 
-        // Default group fallback
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
+    }
+
+    /**
+     * Reads directly from LuckPerms via reflection to avoid adding a hard Maven dependency.
+     */
+    private GroupData getLuckPermsGroup(Player player) {
+        try {
+            org.bukkit.plugin.RegisteredServiceProvider<?> provider = Bukkit.getServicesManager().getRegistration(Class.forName("net.luckperms.api.LuckPerms"));
+            if (provider == null) return null;
+
+            net.luckperms.api.LuckPerms lp = (net.luckperms.api.LuckPerms) provider.getProvider();
+            net.luckperms.api.model.user.User user = lp.getUserManager().getUser(player.getUniqueId());
+            if (user == null) return null;
+
+            // 1. Check if user's primary LuckPerms group matches a DesignCore group
+            String primaryGroup = user.getPrimaryGroup().toLowerCase();
+            if (groups.containsKey(primaryGroup)) {
+                return groups.get(primaryGroup);
+            }
+
+            // 2. Scan nodes explicitly assigned to the user or their parent groups (ignoring '*')
+            for (net.luckperms.api.node.Node node : user.getNodes()) {
+                if (!node.getValue()) continue;
+                String key = node.getKey().toLowerCase();
+
+                // If assigned via permission: designcore.group.<name>
+                if (key.startsWith("designcore.group.")) {
+                    String groupName = key.substring("designcore.group.".length());
+                    if (groups.containsKey(groupName)) {
+                        return groups.get(groupName);
+                    }
+                }
+
+                // If assigned via group inheritance: group.<name>
+                if (key.startsWith("group.")) {
+                    String groupName = key.substring("group.".length());
+                    if (groups.containsKey(groupName)) {
+                        return groups.get(groupName);
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // LuckPerms not present or API unavailable
+        }
+        return null;
     }
 
     public void setupPlayerScoreboard(Player player) {
