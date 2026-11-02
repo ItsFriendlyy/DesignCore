@@ -41,26 +41,25 @@ public class DesignCoreExpansion extends PlaceholderExpansion {
             return "";
         }
 
-        GroupManager.GroupData group = plugin.getGroupManager().getPlayerGroup(player);
-
         // %designcore_prefix%
         if (params.equalsIgnoreCase("prefix")) {
-            return group.prefix();
+            return plugin.getGroupManager().getEffectivePrefix(player);
         }
 
         // %designcore_suffix%
         if (params.equalsIgnoreCase("suffix")) {
-            return group.suffix();
+            return plugin.getGroupManager().getEffectiveSuffix(player);
         }
 
         // %designcore_group%
         if (params.equalsIgnoreCase("group")) {
-            return group.name();
+            return plugin.getGroupManager().getPlayerGroup(player).name();
         }
 
         // %designcore_color%
         if (params.equalsIgnoreCase("color")) {
-            String colors = ChatColor.getLastColors(group.prefix().replace('&', '§'));
+            String prefix = plugin.getGroupManager().getEffectivePrefix(player);
+            String colors = ChatColor.getLastColors(prefix.replace('&', '§'));
             return colors.isEmpty() ? "&f" : colors.replace('§', '&');
         }
 

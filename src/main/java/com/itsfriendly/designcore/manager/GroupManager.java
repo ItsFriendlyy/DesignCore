@@ -2,30 +2,49 @@ package com.itsfriendly.designcore.manager;
 
 import com.itsfriendly.designcore.DesignCore;
 import net.kyori.adventure.text.Component;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.node.Node;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 
 public class GroupManager {
 
     private final DesignCore plugin;
     private final Map<String, GroupData> groups = new HashMap<>();
 
+    // UUID -> Custom Player Overrides
+    private final Map<UUID, PlayerDisplayOverride> playerOverrides = new HashMap<>();
+    private final File dataFile;
+    private final YamlConfiguration dataConfig;
+
     public record GroupData(String name, String prefix, String suffix) {}
+    public record PlayerDisplayOverride(String prefix, String suffix) {}
 
     public GroupManager(DesignCore plugin) {
         this.plugin = plugin;
+        this.dataFile = new File(plugin.getDataFolder(), "userdata.yml");
+        if (!dataFile.exists()) {
+            try {
+                dataFile.getParentFile().mkdirs();
+                dataFile.createNewFile();
+            } catch (IOException ignored) {}
+        }
+        this.dataConfig = YamlConfiguration.loadConfiguration(dataFile);
         loadGroups();
+        loadPlayerOverrides();
     }
 
     public void loadGroups() {
@@ -39,6 +58,108 @@ public class GroupManager {
                 registerGroupPermission(key.toLowerCase());
             }
         }
+    }
+
+    public void loadPlayerOverrides() {
+        playerOverrides.clear();
+        for (String key : dataConfig.getKeys(false)) {
+            try {
+                UUID id = UUID.fromString(key);
+                String prefix = dataConfig.getString(key + ".custom-prefix", null);
+                String suffix = dataConfig.getString(key + ".custom-suffix", null);
+                if (prefix != null || suffix != null) {
+                    playerOverrides.put(id, new PlayerDisplayOverride(prefix, suffix));
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+    }
+
+    public void savePlayerOverrides() {
+        for (Map.Entry<UUID, PlayerDisplayOverride> entry : playerOverrides.entrySet()) {
+            String path = entry.getKey().toString();
+            dataConfig.set(path + ".custom-prefix", entry.getValue().prefix());
+            dataConfig.set(path + ".custom-suffix", entry.getValue().suffix());
+        }
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save player custom prefixes to userdata.yml!");
+        }
+    }
+
+    public boolean setPlayerOverride(UUID uuid, String type, String value) {
+        PlayerDisplayOverride current = playerOverrides.getOrDefault(uuid, new PlayerDisplayOverride(null, null));
+        String newPrefix = current.prefix();
+        String newSuffix = current.suffix();
+
+        if (type.equalsIgnoreCase("prefix")) {
+            newPrefix = value;
+        } else if (type.equalsIgnoreCase("suffix")) {
+            newSuffix = value;
+        } else {
+            return false;
+        }
+
+        playerOverrides.put(uuid, new PlayerDisplayOverride(newPrefix, newSuffix));
+        dataConfig.set(uuid.toString() + ".custom-" + type.toLowerCase(), value);
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException ignored) {}
+
+        Player target = Bukkit.getPlayer(uuid);
+        if (target != null && target.isOnline()) {
+            applyDisplay(target);
+        }
+        return true;
+    }
+
+    public boolean deletePlayerOverride(UUID uuid, String type) {
+        PlayerDisplayOverride current = playerOverrides.get(uuid);
+        if (current == null) return false;
+
+        String newPrefix = current.prefix();
+        String newSuffix = current.suffix();
+
+        if (type.equalsIgnoreCase("prefix")) {
+            newPrefix = null;
+        } else if (type.equalsIgnoreCase("suffix")) {
+            newSuffix = null;
+        } else {
+            return false;
+        }
+
+        if (newPrefix == null && newSuffix == null) {
+            playerOverrides.remove(uuid);
+        } else {
+            playerOverrides.put(uuid, new PlayerDisplayOverride(newPrefix, newSuffix));
+        }
+
+        dataConfig.set(uuid.toString() + ".custom-" + type.toLowerCase(), null);
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException ignored) {}
+
+        Player target = Bukkit.getPlayer(uuid);
+        if (target != null && target.isOnline()) {
+            applyDisplay(target);
+        }
+        return true;
+    }
+
+    public String getEffectivePrefix(Player player) {
+        PlayerDisplayOverride override = playerOverrides.get(player.getUniqueId());
+        if (override != null && override.prefix() != null) {
+            return override.prefix();
+        }
+        return getPlayerGroup(player).prefix();
+    }
+
+    public String getEffectiveSuffix(Player player) {
+        PlayerDisplayOverride override = playerOverrides.get(player.getUniqueId());
+        if (override != null && override.suffix() != null) {
+            return override.suffix();
+        }
+        return getPlayerGroup(player).suffix();
     }
 
     private void registerGroupPermission(String groupName) {
@@ -100,21 +221,40 @@ public class GroupManager {
         return editGroup(name, type, "");
     }
 
-    /**
-     * Resolves the player group without getting fooled by wildcard '*'.
-     * Checks:
-     * 1. LuckPerms direct primary group or explicit permission nodes
-     * 2. Non-wildcard Bukkit permissions
-     * 3. OP / Default fallbacks
-     */
     public GroupData getPlayerGroup(Player player) {
-        // Step 1: Check LuckPerms explicitly if running
-        GroupData lpMatch = getLuckPermsGroup(player);
-        if (lpMatch != null) {
-            return lpMatch;
+        if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+            try {
+                LuckPerms lp = LuckPermsProvider.get();
+                User user = lp.getUserManager().getUser(player.getUniqueId());
+
+                if (user != null) {
+                    for (Node node : user.getNodes()) {
+                        if (!node.getValue()) continue;
+                        String key = node.getKey().toLowerCase();
+
+                        if (key.startsWith("designcore.group.")) {
+                            String groupName = key.substring("designcore.group.".length());
+                            if (groups.containsKey(groupName) && !groupName.equals("default") && !groupName.equals("op")) {
+                                return groups.get(groupName);
+                            }
+                        }
+
+                        if (key.startsWith("group.")) {
+                            String groupName = key.substring("group.".length());
+                            if (groups.containsKey(groupName) && !groupName.equals("default") && !groupName.equals("op")) {
+                                return groups.get(groupName);
+                            }
+                        }
+                    }
+
+                    String primary = user.getPrimaryGroup().toLowerCase();
+                    if (groups.containsKey(primary) && !primary.equals("default") && !primary.equals("op")) {
+                        return groups.get(primary);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
-        // Step 2: Fallback for setups without LuckPerms
         for (GroupData data : groups.values()) {
             String groupKey = data.name().toLowerCase();
             if (groupKey.equals("default") || groupKey.equals("op")) continue;
@@ -134,51 +274,6 @@ public class GroupManager {
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
     }
 
-    /**
-     * Reads directly from LuckPerms via reflection to avoid adding a hard Maven dependency.
-     */
-    private GroupData getLuckPermsGroup(Player player) {
-        try {
-            org.bukkit.plugin.RegisteredServiceProvider<?> provider = Bukkit.getServicesManager().getRegistration(Class.forName("net.luckperms.api.LuckPerms"));
-            if (provider == null) return null;
-
-            net.luckperms.api.LuckPerms lp = (net.luckperms.api.LuckPerms) provider.getProvider();
-            net.luckperms.api.model.user.User user = lp.getUserManager().getUser(player.getUniqueId());
-            if (user == null) return null;
-
-            // 1. Check if user's primary LuckPerms group matches a DesignCore group
-            String primaryGroup = user.getPrimaryGroup().toLowerCase();
-            if (groups.containsKey(primaryGroup)) {
-                return groups.get(primaryGroup);
-            }
-
-            // 2. Scan nodes explicitly assigned to the user or their parent groups (ignoring '*')
-            for (net.luckperms.api.node.Node node : user.getNodes()) {
-                if (!node.getValue()) continue;
-                String key = node.getKey().toLowerCase();
-
-                // If assigned via permission: designcore.group.<name>
-                if (key.startsWith("designcore.group.")) {
-                    String groupName = key.substring("designcore.group.".length());
-                    if (groups.containsKey(groupName)) {
-                        return groups.get(groupName);
-                    }
-                }
-
-                // If assigned via group inheritance: group.<name>
-                if (key.startsWith("group.")) {
-                    String groupName = key.substring("group.".length());
-                    if (groups.containsKey(groupName)) {
-                        return groups.get(groupName);
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            // LuckPerms not present or API unavailable
-        }
-        return null;
-    }
-
     public void setupPlayerScoreboard(Player player) {
         if (player.getScoreboard().equals(Bukkit.getScoreboardManager().getMainScoreboard())) {
             player.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
@@ -188,9 +283,9 @@ public class GroupManager {
     public void applyDisplay(Player player) {
         setupPlayerScoreboard(player);
 
-        GroupData targetGroup = getPlayerGroup(player);
-        String rawPrefix = targetGroup.prefix();
-        String rawSuffix = targetGroup.suffix();
+        // Effective prefix/suffix: Checks player-specific override first, then falls back to group
+        String rawPrefix = getEffectivePrefix(player);
+        String rawSuffix = getEffectiveSuffix(player);
 
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
         if (lastColors.isEmpty()) {
@@ -209,7 +304,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab list display
+        // 1. Tab List Update
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -218,53 +313,51 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Nametag display on isolated scoreboards across all online players
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            setupPlayerScoreboard(viewer);
-            updateTeamOnScoreboard(viewer.getScoreboard(), player, targetGroup, tabPrefix, suffixComponent, lastColors, spacer);
-        }
-    }
-
-    private void updateTeamOnScoreboard(Scoreboard board, Player subject, GroupData group, Component tabPrefix, Component suffixComponent, String lastColors, String spacer) {
-        Team oldTeam = board.getEntryTeam(subject.getName());
-        if (oldTeam != null) {
-            oldTeam.removeEntry(subject.getName());
-        }
-
-        String teamName = "dc_" + group.name();
+        // 2. Nametag Sync (Per-player unique team name to isolate overrides)
+        String teamName = "dc_p_" + player.getName();
         if (teamName.length() > 16) {
             teamName = teamName.substring(0, 16);
         }
 
-        Team team = board.getTeam(teamName);
-        if (team == null) {
-            team = board.registerNewTeam(teamName);
-        }
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            setupPlayerScoreboard(viewer);
+            Scoreboard board = viewer.getScoreboard();
 
-        Component teamPrefix = group.prefix().isEmpty() ? Component.empty() : tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer));
-        team.prefix(teamPrefix);
-        team.suffix(suffixComponent);
+            Team oldTeam = board.getEntryTeam(player.getName());
+            if (oldTeam != null) {
+                oldTeam.removeEntry(player.getName());
+            }
 
-        ChatColor teamColor = null;
-        for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
-            if (lastColors.charAt(i) == '§') {
-                ChatColor c = ChatColor.getByChar(lastColors.charAt(i + 1));
-                if (c != null && c.isColor()) {
-                    teamColor = c;
-                    break;
+            Team team = board.getTeam(teamName);
+            if (team == null) {
+                team = board.registerNewTeam(teamName);
+            }
+
+            Component teamPrefix = rawPrefix.isEmpty() ? Component.empty() : tabPrefix.append(spacer.isEmpty() ? Component.empty() : Component.text(spacer));
+            team.prefix(teamPrefix);
+            team.suffix(suffixComponent);
+
+            ChatColor teamColor = null;
+            for (int i = lastColors.length() - 2; i >= 0; i -= 2) {
+                if (lastColors.charAt(i) == '§') {
+                    ChatColor c = ChatColor.getByChar(lastColors.charAt(i + 1));
+                    if (c != null && c.isColor()) {
+                        teamColor = c;
+                        break;
+                    }
                 }
             }
-        }
-        if (teamColor != null) {
-            try {
-                team.setColor(teamColor);
-            } catch (Exception ignored) {}
-        } else {
-            team.setColor(ChatColor.WHITE);
-        }
+            if (teamColor != null) {
+                try {
+                    team.setColor(teamColor);
+                } catch (Exception ignored) {}
+            } else {
+                team.setColor(ChatColor.WHITE);
+            }
 
-        if (!team.hasEntry(subject.getName())) {
-            team.addEntry(subject.getName());
+            if (!team.hasEntry(player.getName())) {
+                team.addEntry(player.getName());
+            }
         }
     }
 

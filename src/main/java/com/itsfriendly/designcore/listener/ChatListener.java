@@ -1,7 +1,6 @@
 package com.itsfriendly.designcore.listener;
 
 import com.itsfriendly.designcore.DesignCore;
-import com.itsfriendly.designcore.manager.GroupManager;
 import io.papermc.paper.chat.ChatRenderer;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.audience.Audience;
@@ -35,9 +34,9 @@ public class ChatListener implements Listener {
             return;
         }
 
-        GroupManager.GroupData group = plugin.getGroupManager().getPlayerGroup(player);
-        String rawPrefix = group.prefix();
-        String rawSuffix = group.suffix();
+        // Read effective prefixes (per-player override takes priority)
+        String rawPrefix = plugin.getGroupManager().getEffectivePrefix(player);
+        String rawSuffix = plugin.getGroupManager().getEffectiveSuffix(player);
 
         String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
         if (lastColors.isEmpty()) {
@@ -54,15 +53,12 @@ public class ChatListener implements Listener {
                 ? Component.empty()
                 : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix);
 
-        // Extract raw text message
         String rawText = PlainTextComponentSerializer.plainText().serialize(event.message());
 
         final Component formattedMessage;
         if (player.hasPermission("designcore.colorchat")) {
-            // Translate color codes for permitted players
             formattedMessage = DesignCore.color(rawText);
         } else {
-            // Strip any color codes like &4, &e, &l so normal players chat in plain white
             String stripped = COLOR_PATTERN.matcher(rawText).replaceAll("");
             formattedMessage = Component.text(stripped);
         }
