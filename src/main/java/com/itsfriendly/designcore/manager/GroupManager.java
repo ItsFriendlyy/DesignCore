@@ -24,13 +24,11 @@ public class GroupManager {
 
     private final DesignCore plugin;
     private final Map<String, GroupData> groups = new HashMap<>();
-
-    // UUID -> Custom Player Overrides
     private final Map<UUID, PlayerDisplayOverride> playerOverrides = new HashMap<>();
     private final File dataFile;
     private final YamlConfiguration dataConfig;
 
-    public record GroupData(String name, String prefix, String suffix) {}
+    public record GroupData(String name, String prefix, String suffix, int priority) {}
     public record PlayerDisplayOverride(String prefix, String suffix) {}
 
     public GroupManager(DesignCore plugin) {
@@ -54,7 +52,9 @@ public class GroupManager {
             for (String key : section.getKeys(false)) {
                 String prefix = section.getString(key + ".prefix", "");
                 String suffix = section.getString(key + ".suffix", "");
-                groups.put(key.toLowerCase(), new GroupData(key, prefix, suffix));
+                // Default priority to the current size if not set
+                int priority = section.getInt(key + ".priority", groups.size() + 1);
+                groups.put(key.toLowerCase(), new GroupData(key, prefix, suffix, priority));
                 registerGroupPermission(key.toLowerCase());
             }
         }
@@ -74,17 +74,72 @@ public class GroupManager {
         }
     }
 
-    public void savePlayerOverrides() {
-        for (Map.Entry<UUID, PlayerDisplayOverride> entry : playerOverrides.entrySet()) {
-            String path = entry.getKey().toString();
-            dataConfig.set(path + ".custom-prefix", entry.getValue().prefix());
-            dataConfig.set(path + ".custom-suffix", entry.getValue().suffix());
+    public boolean setGroupPriority(String groupName, int priority) {
+        String key = groupName.toLowerCase();
+        if (!groups.containsKey(key)) return false;
+
+        GroupData existing = groups.get(key);
+        plugin.getConfig().set("groups." + key + ".priority", priority);
+        plugin.saveConfig();
+
+        groups.put(key, new GroupData(existing.name(), existing.prefix(), existing.suffix(), priority));
+
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            applyDisplay(online);
         }
-        try {
-            dataConfig.save(dataFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Could not save player custom prefixes to userdata.yml!");
+        return true;
+    }
+
+    public int getGroupCount() {
+        return groups.size();
+    }
+
+    public boolean createGroup(String name) {
+        String key = name.toLowerCase();
+        if (groups.containsKey(key)) return false;
+
+        // Automatically set priority to the lowest (total count of groups)
+        int newPriority = groups.size() + 1;
+        plugin.getConfig().set("groups." + key + ".prefix", "");
+        plugin.getConfig().set("groups." + key + ".suffix", "");
+        plugin.getConfig().set("groups." + key + ".priority", newPriority);
+        plugin.saveConfig();
+
+        groups.put(key, new GroupData(key, "", "", newPriority));
+        registerGroupPermission(key);
+        return true;
+    }
+
+    public boolean editGroup(String name, String type, String value) {
+        String key = name.toLowerCase();
+        if (!groups.containsKey(key)) return false;
+
+        GroupData existing = groups.get(key);
+        String prefix = existing.prefix();
+        String suffix = existing.suffix();
+        int priority = existing.priority();
+
+        if (type.equalsIgnoreCase("prefix")) {
+            prefix = value;
+            plugin.getConfig().set("groups." + key + ".prefix", value);
+        } else if (type.equalsIgnoreCase("suffix")) {
+            suffix = value;
+            plugin.getConfig().set("groups." + key + ".suffix", value);
+        } else {
+            return false;
         }
+
+        plugin.saveConfig();
+        groups.put(key, new GroupData(key, prefix, suffix, priority));
+
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            applyDisplay(online);
+        }
+        return true;
+    }
+
+    public boolean deleteGroupAttribute(String name, String type) {
+        return editGroup(name, type, "");
     }
 
     public boolean setPlayerOverride(UUID uuid, String type, String value) {
@@ -146,6 +201,11 @@ public class GroupManager {
         return true;
     }
 
+    public boolean hasPlayerOverride(Player player) {
+        PlayerDisplayOverride override = playerOverrides.get(player.getUniqueId());
+        return override != null && (override.prefix() != null || override.suffix() != null);
+    }
+
     public String getEffectivePrefix(Player player) {
         PlayerDisplayOverride override = playerOverrides.get(player.getUniqueId());
         if (override != null && override.prefix() != null) {
@@ -175,50 +235,6 @@ public class GroupManager {
 
     public List<String> getGroupNames() {
         return new ArrayList<>(groups.keySet());
-    }
-
-    public boolean createGroup(String name) {
-        String key = name.toLowerCase();
-        if (groups.containsKey(key)) return false;
-
-        plugin.getConfig().set("groups." + key + ".prefix", "");
-        plugin.getConfig().set("groups." + key + ".suffix", "");
-        plugin.saveConfig();
-
-        groups.put(key, new GroupData(key, "", ""));
-        registerGroupPermission(key);
-        return true;
-    }
-
-    public boolean editGroup(String name, String type, String value) {
-        String key = name.toLowerCase();
-        if (!groups.containsKey(key)) return false;
-
-        GroupData existing = groups.get(key);
-        String prefix = existing.prefix();
-        String suffix = existing.suffix();
-
-        if (type.equalsIgnoreCase("prefix")) {
-            prefix = value;
-            plugin.getConfig().set("groups." + key + ".prefix", value);
-        } else if (type.equalsIgnoreCase("suffix")) {
-            suffix = value;
-            plugin.getConfig().set("groups." + key + ".suffix", value);
-        } else {
-            return false;
-        }
-
-        plugin.saveConfig();
-        groups.put(key, new GroupData(key, prefix, suffix));
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            applyDisplay(online);
-        }
-        return true;
-    }
-
-    public boolean deleteGroupAttribute(String name, String type) {
-        return editGroup(name, type, "");
     }
 
     public GroupData getPlayerGroup(Player player) {
@@ -268,10 +284,12 @@ public class GroupManager {
             if (groups.containsKey("op")) {
                 return groups.get("op");
             }
-            return new GroupData("op", "&4&lOP - ", "");
+            return new GroupData("op", "&4&lOP - ", "", 1);
         }
 
-        return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", ""));
+        // Lowest priority + 2 for the fallback default group
+        int defaultPriority = groups.size() + 2;
+        return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", "", defaultPriority));
     }
 
     public void setupPlayerScoreboard(Player player) {
@@ -283,7 +301,7 @@ public class GroupManager {
     public void applyDisplay(Player player) {
         setupPlayerScoreboard(player);
 
-        // Effective prefix/suffix: Checks player-specific override first, then falls back to group
+        GroupData targetGroup = getPlayerGroup(player);
         String rawPrefix = getEffectivePrefix(player);
         String rawSuffix = getEffectiveSuffix(player);
 
@@ -304,7 +322,7 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab List Update
+        // 1. Tab List Display
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -313,11 +331,26 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Nametag Sync (Per-player unique team name to isolate overrides)
-        String teamName = "dc_p_" + player.getName();
-        if (teamName.length() > 16) {
-            teamName = teamName.substring(0, 16);
+        // 2. Tab Sort Order Calculation:
+        // - Official group priorities: 1 to N
+        // - Player custom override: (Group count + 1) -> places them under group prefixes
+        // - Default group: (Group count + 2) -> places normal users at the very bottom
+        int sortPriority;
+        if (hasPlayerOverride(player)) {
+            sortPriority = groups.size() + 1;
+        } else if (targetGroup.name().equalsIgnoreCase("default")) {
+            sortPriority = groups.size() + 2;
+        } else {
+            sortPriority = targetGroup.priority();
         }
+
+        // Format team name: "dc_001_Player" (16 char limit safe)
+        String prefixOrder = String.format("%03d", Math.min(999, Math.max(1, sortPriority)));
+        String pName = player.getName();
+        if (pName.length() > 8) {
+            pName = pName.substring(0, 8);
+        }
+        String teamName = "d" + prefixOrder + "_" + pName;
 
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             setupPlayerScoreboard(viewer);
@@ -364,7 +397,7 @@ public class GroupManager {
     public void cleanupMainScoreboard() {
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         for (Team team : new ArrayList<>(board.getTeams())) {
-            if (team.getName().startsWith("dc_")) {
+            if (team.getName().startsWith("d") || team.getName().startsWith("dc_")) {
                 team.unregister();
             }
         }

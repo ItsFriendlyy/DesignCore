@@ -52,9 +52,6 @@ public class DesignCommand implements TabExecutor {
             String action;
             int valueStartIndex = 4;
 
-            // Handles both:
-            // /design player <name> prefix|suffix edit|add|delete <value>
-            // /design player <name> edit|add|delete prefix|suffix <value>
             if (args[2].equalsIgnoreCase("prefix") || args[2].equalsIgnoreCase("suffix")) {
                 type = args[2].toLowerCase();
                 action = args[3].toLowerCase();
@@ -92,6 +89,27 @@ public class DesignCommand implements TabExecutor {
                 }
                 return true;
             }
+        }
+
+        // /design group <group_name> priority set <number>
+        if (args.length >= 5 && args[0].equalsIgnoreCase("group") && args[2].equalsIgnoreCase("priority") && args[3].equalsIgnoreCase("set")) {
+            String groupName = args[1];
+            try {
+                int priority = Integer.parseInt(args[4]);
+                if (priority < 1) {
+                    sender.sendMessage(DesignCore.color("&cPriority must be 1 or higher!"));
+                    return true;
+                }
+
+                if (plugin.getGroupManager().setGroupPriority(groupName, priority)) {
+                    sender.sendMessage(DesignCore.color("&aSet priority for group &e" + groupName + "&a to &b" + priority + "&a!"));
+                } else {
+                    sender.sendMessage(DesignCore.color("&cGroup not found: &e" + groupName));
+                }
+            } catch (NumberFormatException e) {
+                sender.sendMessage(DesignCore.color("&cPriority must be a valid number!"));
+            }
+            return true;
         }
 
         // /design group ...
@@ -145,10 +163,9 @@ public class DesignCommand implements TabExecutor {
         }
 
         sender.sendMessage(DesignCore.color("&6--- DesignCore Help ---"));
-        sender.sendMessage(DesignCore.color("&e/design player <player> prefix|suffix edit <value>"));
-        sender.sendMessage(DesignCore.color("&e/design player <player> prefix|suffix delete"));
+        sender.sendMessage(DesignCore.color("&e/design group <group_name> priority set <number>"));
         sender.sendMessage(DesignCore.color("&e/design group <name> edit prefix|suffix <value>"));
-        sender.sendMessage(DesignCore.color("&e/design group <name> delete prefix|suffix"));
+        sender.sendMessage(DesignCore.color("&e/design player <player> prefix|suffix edit <value>"));
         return true;
     }
 
@@ -164,7 +181,30 @@ public class DesignCommand implements TabExecutor {
             return StringUtil.copyPartialMatches(args[0], Arrays.asList("create", "group", "player"), completions);
         }
 
-        // /design player ...
+        // Tab completion for /design group ...
+        if (args[0].equalsIgnoreCase("group")) {
+            if (args.length == 2) {
+                return StringUtil.copyPartialMatches(args[1], plugin.getGroupManager().getGroupNames(), completions);
+            }
+            if (args.length == 3) {
+                return StringUtil.copyPartialMatches(args[2], Arrays.asList("priority", "edit", "add", "delete"), completions);
+            }
+            if (args.length == 4 && args[2].equalsIgnoreCase("priority")) {
+                return StringUtil.copyPartialMatches(args[3], Collections.singletonList("set"), completions);
+            }
+            if (args.length == 4) {
+                return StringUtil.copyPartialMatches(args[3], Arrays.asList("prefix", "suffix"), completions);
+            }
+            if (args.length == 5 && args[2].equalsIgnoreCase("priority")) {
+                List<String> priorities = new ArrayList<>();
+                for (int i = 1; i <= plugin.getGroupManager().getGroupCount(); i++) {
+                    priorities.add(String.valueOf(i));
+                }
+                return StringUtil.copyPartialMatches(args[4], priorities, completions);
+            }
+        }
+
+        // Tab completion for /design player ...
         if (args[0].equalsIgnoreCase("player")) {
             if (args.length == 2) {
                 List<String> names = new ArrayList<>();
@@ -178,27 +218,6 @@ public class DesignCommand implements TabExecutor {
             }
             if (args.length == 4) {
                 return StringUtil.copyPartialMatches(args[3], Arrays.asList("edit", "add", "delete"), completions);
-            }
-        }
-
-        // /design group ...
-        if (args[0].equalsIgnoreCase("group")) {
-            if (args.length == 2) {
-                List<String> options = new ArrayList<>(plugin.getGroupManager().getGroupNames());
-                options.add("edit");
-                options.add("add");
-                options.add("delete");
-                return StringUtil.copyPartialMatches(args[1], options, completions);
-            }
-            if (args.length == 3) {
-                if (args[1].equalsIgnoreCase("edit") || args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("delete")) {
-                    return StringUtil.copyPartialMatches(args[2], plugin.getGroupManager().getGroupNames(), completions);
-                } else {
-                    return StringUtil.copyPartialMatches(args[2], Arrays.asList("edit", "add", "delete"), completions);
-                }
-            }
-            if (args.length == 4) {
-                return StringUtil.copyPartialMatches(args[3], Arrays.asList("prefix", "suffix"), completions);
             }
         }
 
