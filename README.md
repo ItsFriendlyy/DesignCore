@@ -1,6 +1,6 @@
 # DesignCore
 
-**DesignCore** is an all-in-one chat styling, nametag hierarchy, and player social management plugin engineered natively for modern **Paper** and **Purpur** servers (Minecraft 1.20.5 – 1.21.x) using the **Adventure Component API** and **Java 21**.
+**DesignCore** is an all-in-one chat styling, nametag hierarchy, and player social management plugin engineered natively for modern **Paper** and **Purpur** servers (Minecraft 1.13-26.3) using the **Adventure Component API** and **Java 21**.
 
 It replaces bloated chat and prefix management suites with an asynchronous, zero-flicker architecture featuring scoreboard team sorting, LuckPerms rank inheritance, a persistent friendship system, and native hook compatibility for staff moderation plugins like **StaffCore**.
 
@@ -47,7 +47,7 @@ It replaces bloated chat and prefix management suites with an asynchronous, zero
 
 ## ✦ Installation & Setup
 
-1. Verify that your server environment runs **Java 21** and **Paper / Purpur 1.20.5+**.
+1. Verify that your server environment runs **Java 21** and **Paper / Purpur 1.13-26.3**.
 2. *(Optional)* Install **LuckPerms** and **PlaceholderAPI** for rank synchronization and placeholder support.
 3. Download the latest release from the [Releases](../../releases) tab or build from source.
 4. Place `DesignCore.jar` into your server's `plugins/` folder.
