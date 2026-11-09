@@ -49,6 +49,18 @@ public class PlayerConnectionListener implements Listener {
                 .append(rawSuffix.isEmpty() ? Component.empty() : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix));
     }
 
+    public static Component buildJoinMessage(Player player) {
+        return DesignCore.color("&8[&a+&8] ")
+                .append(buildFormattedName(player))
+                .append(DesignCore.color(" &7joined the game."));
+    }
+
+    public static Component buildQuitMessage(Player player) {
+        return DesignCore.color("&8[&c-&8] ")
+                .append(buildFormattedName(player))
+                .append(DesignCore.color(" &7left the game."));
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -71,11 +83,7 @@ public class PlayerConnectionListener implements Listener {
                 }
             }
 
-            // Vanilla yellow text: [Prefix] Name [Suffix] joined the game
-            Component joinBroadcast = buildFormattedName(player)
-                    .append(DesignCore.color(" &ejoined the game"));
-
-            Bukkit.broadcast(joinBroadcast);
+            Bukkit.broadcast(buildJoinMessage(player));
         }, 2L);
     }
 
@@ -87,11 +95,7 @@ public class PlayerConnectionListener implements Listener {
         event.quitMessage(null);
 
         if (!isPlayerVanished(player)) {
-            // Vanilla yellow text: [Prefix] Name [Suffix] left the game
-            Component quitBroadcast = buildFormattedName(player)
-                    .append(DesignCore.color(" &eleft the game"));
-
-            Bukkit.broadcast(quitBroadcast);
+            Bukkit.broadcast(buildQuitMessage(player));
         }
 
         for (Player viewer : Bukkit.getOnlinePlayers()) {
