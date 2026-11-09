@@ -17,7 +17,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.help.GenericCommandHelpTopic;
+import org.bukkit.help.HelpTopic;
+import org.bukkit.help.IndexHelpTopic;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public final class DesignCore extends JavaPlugin {
 
@@ -40,7 +46,7 @@ public final class DesignCore extends JavaPlugin {
         this.friendManager = new FriendManager(this);
         this.spyManager = new SpyManager();
 
-        // 2. Clear any lingering dc_ teams from main scoreboard
+        // 2. Clear lingering dc_ teams from main scoreboard
         this.groupManager.cleanupMainScoreboard();
 
         // 3. Register Commands & Tab Completers
@@ -67,6 +73,9 @@ public final class DesignCore extends JavaPlugin {
         // 6. Voice Hook Fallback
         this.voiceHook = new DummyVoiceHook();
 
+        // 7. Register /help DesignCore Index
+        registerHelpTopics();
+
         getLogger().info("DesignCore has been enabled successfully!");
     }
 
@@ -80,6 +89,27 @@ public final class DesignCore extends JavaPlugin {
         }
 
         getLogger().info("DesignCore has been disabled.");
+    }
+
+    private void registerHelpTopics() {
+        List<HelpTopic> topics = new ArrayList<>();
+
+        for (String cmdName : getDescription().getCommands().keySet()) {
+            PluginCommand cmd = getCommand(cmdName);
+            if (cmd != null) {
+                topics.add(new GenericCommandHelpTopic(cmd));
+            }
+        }
+
+        IndexHelpTopic indexTopic = new IndexHelpTopic(
+                getName(),
+                "All commands for " + getName(),
+                null,
+                topics,
+                "Below is a list of all " + getName() + " commands:"
+        );
+
+        Bukkit.getHelpMap().addTopic(indexTopic);
     }
 
     private void registerCommand(String name, CommandExecutor executor) {
