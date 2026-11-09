@@ -1,11 +1,7 @@
 package com.itsfriendly.designcore.command;
 
 import com.itsfriendly.designcore.DesignCore;
-import com.itsfriendly.designcore.listener.GUIListener;
 import com.itsfriendly.designcore.manager.FriendManager;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -28,200 +24,162 @@ public class FriendCommand implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(DesignCore.color("&cOnly players can run this command."));
+            sender.sendMessage(DesignCore.color("&cOnly players can manage friends."));
             return true;
         }
 
         FriendManager fm = plugin.getFriendManager();
 
-        // Direct alias support if executed via /unfriend <player>
+        // /unfriend <player>
         if (label.equalsIgnoreCase("unfriend")) {
             if (args.length < 1) {
                 player.sendMessage(DesignCore.color("&cUsage: /unfriend <player>"));
                 return true;
             }
-            handleUnfriend(player, args[0]);
-            return true;
+            return handleRemove(player, args[0]);
         }
 
-        if (args.length == 0 || args[0].equalsIgnoreCase("list")) {
-            GUIListener.openFriendListGUI(player);
-            return true;
-        }
-
-        if (args[0].equalsIgnoreCase("help")) {
+        if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
             sendHelp(player);
             return true;
         }
 
-        // /friend remove <player> or /friend unfriend <player>
-        if (args[0].equalsIgnoreCase("remove") || args[0].equalsIgnoreCase("unfriend")) {
-            if (args.length < 2) {
-                player.sendMessage(DesignCore.color("&cUsage: /friend remove <player>"));
-                return true;
+        String sub = args[0].toLowerCase();
+
+        switch (sub) {
+            case "add" -> {
+                if (args.length < 2) {
+                    player.sendMessage(DesignCore.color("&cUsage: /friend add <player>"));
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null || !target.isOnline()) {
+                    player.sendMessage(DesignCore.color("&cPlayer not found or offline."));
+                    return true;
+                }
+                if (target.getUniqueId().equals(player.getUniqueId())) {
+                    player.sendMessage(DesignCore.color("&cYou cannot add yourself as a friend!"));
+                    return true;
+                }
+                if (fm.areFriends(player.getUniqueId(), target.getUniqueId())) {
+                    player.sendMessage(DesignCore.color("&cYou are already friends with &e" + target.getName() + "&c!"));
+                    return true;
+                }
+                fm.sendRequest(player.getUniqueId(), target.getUniqueId());
+                player.sendMessage(DesignCore.color("&aSent a friend request to &e" + target.getName() + "&a!"));
+                target.sendMessage(DesignCore.color("&e" + player.getName() + " &asent you a friend request! Type &b/friend accept &aor &c/friend deny&a."));
             }
-            handleUnfriend(player, args[1]);
-            return true;
+            case "accept" -> {
+                UUID requesterId = fm.getPendingRequest(player.getUniqueId());
+                if (requesterId == null) {
+                    player.sendMessage(DesignCore.color("&cYou do not have any pending friend requests."));
+                    return true;
+                }
+                fm.clearPendingRequest(player.getUniqueId());
+                fm.addFriend(player.getUniqueId(), requesterId);
+
+                player.sendMessage(DesignCore.color("&aFriend request accepted!"));
+                Player requester = Bukkit.getPlayer(requesterId);
+                if (requester != null && requester.isOnline()) {
+                    requester.sendMessage(DesignCore.color("&e" + player.getName() + " &aaccepted your friend request!"));
+                }
+            }
+            case "deny" -> {
+                UUID requesterId = fm.getPendingRequest(player.getUniqueId());
+                if (requesterId == null) {
+                    player.sendMessage(DesignCore.color("&cYou do not have any pending friend requests."));
+                    return true;
+                }
+                fm.clearPendingRequest(player.getUniqueId());
+                player.sendMessage(DesignCore.color("&cFriend request denied."));
+            }
+            case "remove" -> {
+                if (args.length < 2) {
+                    player.sendMessage(DesignCore.color("&cUsage: /friend remove <player>"));
+                    return true;
+                }
+                handleRemove(player, args[1]);
+            }
+            case "list" -> {
+                Set<UUID> friendUuids = fm.getFriends(player.getUniqueId());
+                if (friendUuids.isEmpty()) {
+                    player.sendMessage(DesignCore.color("&7You don't have any friends added yet. Use &e/friend add <player>&7!"));
+                    return true;
+                }
+                player.sendMessage(DesignCore.color("&6=== Your Friends (" + friendUuids.size() + ") ==="));
+                for (UUID id : friendUuids) {
+                    String displayName = fm.resolvePlayerName(id);
+                    Player online = Bukkit.getPlayer(id);
+                    boolean isOnline = (online != null && online.isOnline());
+                    player.sendMessage(DesignCore.color((isOnline ? "&a● &f" : "&c● &7") + displayName + (isOnline ? " &a(Online)" : " &7(Offline)")));
+                }
+            }
+            default -> sendHelp(player);
         }
 
-        // /friend add <player>
-        if (args[0].equalsIgnoreCase("add")) {
-            if (args.length < 2) {
-                player.sendMessage(DesignCore.color("&cUsage: /friend add <player>"));
-                return true;
-            }
-
-            Player target = Bukkit.getPlayer(args[1]);
-            if (target == null || !target.isOnline()) {
-                player.sendMessage(DesignCore.color("&cPlayer not found or is offline."));
-                return true;
-            }
-
-            if (target.getUniqueId().equals(player.getUniqueId())) {
-                player.sendMessage(DesignCore.color("&cYou cannot add yourself as a friend!"));
-                return true;
-            }
-
-            if (fm.areFriends(player.getUniqueId(), target.getUniqueId())) {
-                player.sendMessage(DesignCore.color("&cYou are already friends with &e" + target.getName() + "&c!"));
-                return true;
-            }
-
-            if (fm.hasRequestFrom(player.getUniqueId(), target.getUniqueId())) {
-                fm.makeFriends(player.getUniqueId(), target.getUniqueId());
-                player.sendMessage(DesignCore.color("&aYou accepted the friend request from &e" + target.getName() + "&a!"));
-                target.sendMessage(DesignCore.color("&a&e" + player.getName() + " &aaccepted your friend request!"));
-                return true;
-            }
-
-            if (fm.hasRequestFrom(target.getUniqueId(), player.getUniqueId())) {
-                player.sendMessage(DesignCore.color("&cYou already sent a friend request to &e" + target.getName() + "&c."));
-                return true;
-            }
-
-            fm.sendRequest(player.getUniqueId(), target.getUniqueId());
-            player.sendMessage(DesignCore.color("&aFriend request sent to &e" + target.getName() + "&a!"));
-
-            Component acceptButton = DesignCore.color("&a&l[Accept]")
-                    .clickEvent(ClickEvent.runCommand("/friend accept " + player.getName()))
-                    .hoverEvent(HoverEvent.showText(DesignCore.color("&aClick to accept friend request")));
-
-            Component declineButton = DesignCore.color("&c&l[Decline]")
-                    .clickEvent(ClickEvent.runCommand("/friend decline " + player.getName()))
-                    .hoverEvent(HoverEvent.showText(DesignCore.color("&cClick to decline friend request")));
-
-            Component requestMessage = DesignCore.color("&6&lFriend Request &8| &e" + player.getName() + " &7sent you a friend request!\n")
-                    .append(DesignCore.color("&7Action: "))
-                    .append(acceptButton)
-                    .append(Component.text("  "))
-                    .append(declineButton);
-
-            target.sendMessage(requestMessage);
-            return true;
-        }
-
-        // /friend accept <player>
-        if (args[0].equalsIgnoreCase("accept")) {
-            if (args.length < 2) {
-                player.sendMessage(DesignCore.color("&cUsage: /friend accept <player>"));
-                return true;
-            }
-
-            Player senderPlayer = Bukkit.getPlayer(args[1]);
-            UUID senderId = senderPlayer != null ? senderPlayer.getUniqueId() : Bukkit.getOfflinePlayer(args[1]).getUniqueId();
-            String senderName = senderPlayer != null ? senderPlayer.getName() : args[1];
-
-            if (!fm.hasRequestFrom(player.getUniqueId(), senderId)) {
-                player.sendMessage(DesignCore.color("&cYou don't have a pending request from &e" + senderName + "&c."));
-                return true;
-            }
-
-            fm.makeFriends(player.getUniqueId(), senderId);
-            player.sendMessage(DesignCore.color("&aYou are now friends with &e" + senderName + "&a!"));
-
-            if (senderPlayer != null && senderPlayer.isOnline()) {
-                senderPlayer.sendMessage(DesignCore.color("&a&e" + player.getName() + " &aaccepted your friend request!"));
-            }
-            return true;
-        }
-
-        // /friend decline <player>
-        if (args[0].equalsIgnoreCase("decline")) {
-            if (args.length < 2) {
-                player.sendMessage(DesignCore.color("&cUsage: /friend decline <player>"));
-                return true;
-            }
-
-            Player senderPlayer = Bukkit.getPlayer(args[1]);
-            UUID senderId = senderPlayer != null ? senderPlayer.getUniqueId() : Bukkit.getOfflinePlayer(args[1]).getUniqueId();
-            String senderName = senderPlayer != null ? senderPlayer.getName() : args[1];
-
-            if (!fm.hasRequestFrom(player.getUniqueId(), senderId)) {
-                player.sendMessage(DesignCore.color("&cYou don't have a pending request from &e" + senderName + "&c."));
-                return true;
-            }
-
-            fm.removeRequest(player.getUniqueId(), senderId);
-            player.sendMessage(DesignCore.color("&cDeclined friend request from &e" + senderName + "&c."));
-
-            if (senderPlayer != null && senderPlayer.isOnline()) {
-                senderPlayer.sendMessage(DesignCore.color("&c&e" + player.getName() + " &cdeclined your friend request."));
-            }
-            return true;
-        }
-
-        sendHelp(player);
         return true;
     }
 
-    private void handleUnfriend(Player player, String targetName) {
-        Player targetOnline = Bukkit.getPlayer(targetName);
-        UUID targetId = targetOnline != null ? targetOnline.getUniqueId() : Bukkit.getOfflinePlayer(targetName).getUniqueId();
+    private boolean handleRemove(Player player, String targetInput) {
+        FriendManager fm = plugin.getFriendManager();
+        UUID targetId = fm.resolvePlayerUuid(targetInput);
 
-        if (plugin.getFriendManager().unfriend(player.getUniqueId(), targetId)) {
-            player.sendMessage(DesignCore.color("&cYou removed &e" + targetName + " &cfrom your friends list."));
-            if (targetOnline != null && targetOnline.isOnline()) {
-                targetOnline.sendMessage(DesignCore.color("&e" + player.getName() + " &cremoved you from their friends list."));
+        // Fallback: Check if targetInput matches any friend's resolved name
+        if (targetId == null || !fm.areFriends(player.getUniqueId(), targetId)) {
+            for (UUID friendId : fm.getFriends(player.getUniqueId())) {
+                String knownName = fm.resolvePlayerName(friendId);
+                if (knownName.equalsIgnoreCase(targetInput)) {
+                    targetId = friendId;
+                    break;
+                }
             }
-        } else {
-            player.sendMessage(DesignCore.color("&cYou are not friends with &e" + targetName + "&c."));
         }
+
+        if (targetId != null && fm.removeFriend(player.getUniqueId(), targetId)) {
+            String name = fm.resolvePlayerName(targetId);
+            player.sendMessage(DesignCore.color("&aRemoved &e" + name + " &afrom your friends list."));
+            return true;
+        }
+
+        player.sendMessage(DesignCore.color("&cCould not find friend &e" + targetInput + "&c in your friends list."));
+        return true;
     }
 
     private void sendHelp(Player player) {
         player.sendMessage(DesignCore.color("&6--- Friend Commands ---"));
-        player.sendMessage(DesignCore.color("&e/friend list &7- Open your interactive friends list GUI"));
         player.sendMessage(DesignCore.color("&e/friend add <player> &7- Send a friend request"));
-        player.sendMessage(DesignCore.color("&e/friend accept <player> &7- Accept a friend request"));
-        player.sendMessage(DesignCore.color("&e/friend decline <player> &7- Decline a friend request"));
-        player.sendMessage(DesignCore.color("&e/unfriend <player> &7- Remove a friend"));
+        player.sendMessage(DesignCore.color("&e/friend accept &7- Accept incoming request"));
+        player.sendMessage(DesignCore.color("&e/friend deny &7- Deny incoming request"));
+        player.sendMessage(DesignCore.color("&e/friend remove <player> &7- Remove a friend"));
+        player.sendMessage(DesignCore.color("&e/friend list &7- View all friends and online status"));
     }
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        if (label.equalsIgnoreCase("unfriend") && args.length == 1 && sender instanceof Player player) {
+        if (!(sender instanceof Player player)) return Collections.emptyList();
+        FriendManager fm = plugin.getFriendManager();
+
+        if (label.equalsIgnoreCase("unfriend") && args.length == 1) {
             List<String> friendNames = new ArrayList<>();
-            for (UUID fId : plugin.getFriendManager().getFriends(player.getUniqueId())) {
-                String name = Bukkit.getOfflinePlayer(fId).getName();
-                if (name != null) friendNames.add(name);
+            for (UUID id : fm.getFriends(player.getUniqueId())) {
+                friendNames.add(fm.resolvePlayerName(id));
             }
             return StringUtil.copyPartialMatches(args[0], friendNames, new ArrayList<>());
         }
 
         if (args.length == 1) {
-            return StringUtil.copyPartialMatches(args[0], Arrays.asList("add", "accept", "decline", "list", "remove", "unfriend"), new ArrayList<>());
+            return StringUtil.copyPartialMatches(args[0], Arrays.asList("add", "accept", "deny", "remove", "list", "help"), new ArrayList<>());
         }
 
-        if (args.length == 2 && (args[0].equalsIgnoreCase("remove") || args[0].equalsIgnoreCase("unfriend")) && sender instanceof Player player) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
             List<String> friendNames = new ArrayList<>();
-            for (UUID fId : plugin.getFriendManager().getFriends(player.getUniqueId())) {
-                String name = Bukkit.getOfflinePlayer(fId).getName();
-                if (name != null) friendNames.add(name);
+            for (UUID id : fm.getFriends(player.getUniqueId())) {
+                friendNames.add(fm.resolvePlayerName(id));
             }
             return StringUtil.copyPartialMatches(args[1], friendNames, new ArrayList<>());
         }
 
-        if (args.length == 2 && (args[0].equalsIgnoreCase("add") || args[0].equalsIgnoreCase("accept") || args[0].equalsIgnoreCase("decline"))) {
+        if (args.length == 2 && args[0].equalsIgnoreCase("add")) {
             List<String> names = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) {
                 if (!p.getName().equalsIgnoreCase(sender.getName())) {

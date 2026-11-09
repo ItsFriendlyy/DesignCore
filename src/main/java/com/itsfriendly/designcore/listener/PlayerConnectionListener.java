@@ -19,8 +19,8 @@ public class PlayerConnectionListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        plugin.getFriendManager().cachePlayer(player); // Cache name and UUID immediately
 
-        // تأخير 2 ticks للتأكد من اكتمال تحميل بيانات LuckPerms
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
                 plugin.getGroupManager().applyDisplay(player);
