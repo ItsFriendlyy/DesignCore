@@ -7,11 +7,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-public class SpyMCommand implements CommandExecutor {
+public class SpyCommand implements CommandExecutor {
 
     private final DesignCore plugin;
 
-    public SpyMCommand(DesignCore plugin) {
+    public SpyCommand(DesignCore plugin) {
         this.plugin = plugin;
     }
 
@@ -23,15 +23,15 @@ public class SpyMCommand implements CommandExecutor {
         }
 
         if (!player.hasPermission("designcore.spym")) {
-            player.sendMessage(DesignCore.color("&cNo permission."));
+            player.sendMessage(DesignCore.color("&cYou do not have permission to use staff spy."));
             return true;
         }
 
-        boolean enabled = plugin.getChatManager().toggleSpy(player.getUniqueId());
-        if (enabled) {
-            player.sendMessage(DesignCore.color("&aPM Spy enabled. You will now see direct messages between players."));
+        boolean active = plugin.getSpyManager().toggleSpy(player.getUniqueId());
+        if (active) {
+            player.sendMessage(DesignCore.color("&aPrivate message spy enabled."));
         } else {
-            player.sendMessage(DesignCore.color("&cPM Spy disabled."));
+            player.sendMessage(DesignCore.color("&cPrivate message spy disabled."));
         }
         return true;
     }

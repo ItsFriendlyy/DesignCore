@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+@SuppressWarnings("deprecation")
 public class GroupManager {
 
     private final DesignCore plugin;
@@ -52,7 +53,6 @@ public class GroupManager {
             for (String key : section.getKeys(false)) {
                 String prefix = section.getString(key + ".prefix", "");
                 String suffix = section.getString(key + ".suffix", "");
-                // Default priority to the current size if not set
                 int priority = section.getInt(key + ".priority", groups.size() + 1);
                 groups.put(key.toLowerCase(), new GroupData(key, prefix, suffix, priority));
                 registerGroupPermission(key.toLowerCase());
@@ -98,7 +98,6 @@ public class GroupManager {
         String key = name.toLowerCase();
         if (groups.containsKey(key)) return false;
 
-        // Automatically set priority to the lowest (total count of groups)
         int newPriority = groups.size() + 1;
         plugin.getConfig().set("groups." + key + ".prefix", "");
         plugin.getConfig().set("groups." + key + ".suffix", "");
@@ -287,7 +286,6 @@ public class GroupManager {
             return new GroupData("op", "&4&lOP - ", "", 1);
         }
 
-        // Lowest priority + 2 for the fallback default group
         int defaultPriority = groups.size() + 2;
         return groups.getOrDefault("default", new GroupData("default", "&7[Member] ", "", defaultPriority));
     }
@@ -322,7 +320,6 @@ public class GroupManager {
             suffixComponent = DesignCore.color((suffixHasLeadingSpace ? "" : " ") + rawSuffix);
         }
 
-        // 1. Tab List Display
         player.playerListName(
             Component.empty()
                 .append(tabPrefix)
@@ -331,10 +328,6 @@ public class GroupManager {
                 .append(suffixComponent)
         );
 
-        // 2. Tab Sort Order Calculation:
-        // - Official group priorities: 1 to N
-        // - Player custom override: (Group count + 1) -> places them under group prefixes
-        // - Default group: (Group count + 2) -> places normal users at the very bottom
         int sortPriority;
         if (hasPlayerOverride(player)) {
             sortPriority = groups.size() + 1;
@@ -344,7 +337,6 @@ public class GroupManager {
             sortPriority = targetGroup.priority();
         }
 
-        // Format team name: "dc_001_Player" (16 char limit safe)
         String prefixOrder = String.format("%03d", Math.min(999, Math.max(1, sortPriority)));
         String pName = player.getName();
         if (pName.length() > 8) {

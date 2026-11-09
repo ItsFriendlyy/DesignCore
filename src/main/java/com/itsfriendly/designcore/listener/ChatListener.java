@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.regex.Pattern;
 
+@SuppressWarnings("deprecation")
 public class ChatListener implements Listener {
 
     private static final Pattern COLOR_PATTERN = Pattern.compile("(?i)&[0-9A-FK-OR]");
@@ -34,7 +35,6 @@ public class ChatListener implements Listener {
             return;
         }
 
-        // Read effective prefixes (per-player override takes priority)
         String rawPrefix = plugin.getGroupManager().getEffectivePrefix(player);
         String rawSuffix = plugin.getGroupManager().getEffectiveSuffix(player);
 

@@ -25,6 +25,7 @@ import java.util.UUID;
 
 public class PMSettingsCommand implements TabExecutor {
 
+    @SuppressWarnings("unused")
     private final DesignCore plugin;
 
     public PMSettingsCommand(DesignCore plugin) {
