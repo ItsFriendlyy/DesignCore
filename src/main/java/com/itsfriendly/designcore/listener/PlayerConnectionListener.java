@@ -25,40 +25,44 @@ public class PlayerConnectionListener implements Listener {
         Player player = event.getPlayer();
         plugin.getFriendManager().cachePlayer(player);
 
-        // Build formatted display name with prefix and suffix
-        String rawPrefix = plugin.getGroupManager().getEffectivePrefix(player);
-        String rawSuffix = plugin.getGroupManager().getEffectiveSuffix(player);
+        // 1. إلغاء رسالة الدخول الافتراضية الصفراء تماماً
+        event.joinMessage(null);
 
-        String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
-        if (lastColors.isEmpty()) {
-            lastColors = "§f";
-        }
-
-        boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
-        String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
-
-        Component formattedName = Component.empty()
-                .append(DesignCore.color(rawPrefix))
-                .append(spacer.isEmpty() ? Component.empty() : Component.text(spacer))
-                .append(DesignCore.color(lastColors + player.getName()))
-                .append(rawSuffix.isEmpty() ? Component.empty() : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix));
-
-        // Set custom join message: [prefix] Name [suffix] joined the game
-        event.joinMessage(
-                DesignCore.color("&8[&a+&8] ").append(formattedName).append(DesignCore.color(" &7joined the game"))
-        );
-
-        // Update tablist and nametags after LuckPerms completes permission initialization
+        // 2. البث المخصص بعد 2 ticks لضمان تحميل رتبة LuckPerms
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (player.isOnline()) {
-                plugin.getGroupManager().applyDisplay(player);
+            if (!player.isOnline()) return;
 
-                for (Player other : Bukkit.getOnlinePlayers()) {
-                    if (!other.equals(player)) {
-                        plugin.getGroupManager().applyDisplay(other);
-                    }
+            // تحديث التاب ليست والتاب نيم
+            plugin.getGroupManager().applyDisplay(player);
+            for (Player other : Bukkit.getOnlinePlayers()) {
+                if (!other.equals(player)) {
+                    plugin.getGroupManager().applyDisplay(other);
                 }
             }
+
+            // جلب البريفكس والسفكس
+            String rawPrefix = plugin.getGroupManager().getEffectivePrefix(player);
+            String rawSuffix = plugin.getGroupManager().getEffectiveSuffix(player);
+
+            String lastColors = ChatColor.getLastColors(rawPrefix.replace('&', '§'));
+            if (lastColors.isEmpty()) {
+                lastColors = "§f";
+            }
+
+            boolean prefixHasTrailingSpace = rawPrefix.endsWith(" ");
+            String spacer = (rawPrefix.isEmpty() || prefixHasTrailingSpace) ? "" : " ";
+
+            Component formattedName = Component.empty()
+                    .append(DesignCore.color(rawPrefix))
+                    .append(spacer.isEmpty() ? Component.empty() : Component.text(spacer))
+                    .append(DesignCore.color(lastColors + player.getName()))
+                    .append(rawSuffix.isEmpty() ? Component.empty() : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix));
+
+            Component broadcastMessage = DesignCore.color("&8[&a+&8] ")
+                    .append(formattedName)
+                    .append(DesignCore.color(" &7joined the game."));
+
+            Bukkit.broadcast(broadcastMessage);
         }, 2L);
     }
 
@@ -67,7 +71,10 @@ public class PlayerConnectionListener implements Listener {
         Player player = event.getPlayer();
         String pName = player.getName();
 
-        // Build formatted display name with prefix and suffix
+        // 1. إلغاء رسالة الخروج الافتراضية
+        event.quitMessage(null);
+
+        // 2. جلب وتجهيز البريفكس
         String rawPrefix = plugin.getGroupManager().getEffectivePrefix(player);
         String rawSuffix = plugin.getGroupManager().getEffectiveSuffix(player);
 
@@ -85,12 +92,13 @@ public class PlayerConnectionListener implements Listener {
                 .append(DesignCore.color(lastColors + player.getName()))
                 .append(rawSuffix.isEmpty() ? Component.empty() : DesignCore.color((rawSuffix.startsWith(" ") ? "" : " ") + rawSuffix));
 
-        // Set custom quit message: [prefix] Name [suffix] left the game
-        event.quitMessage(
-                DesignCore.color("&8[&c-&8] ").append(formattedName).append(DesignCore.color(" &7left the game"))
-        );
+        Component quitBroadcast = DesignCore.color("&8[&c-&8] ")
+                .append(formattedName)
+                .append(DesignCore.color(" &7left the game."));
 
-        // Clean up scoreboard team entries
+        Bukkit.broadcast(quitBroadcast);
+
+        // تنظيف التيم من سكوربورد باقي اللاعبين
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             if (!viewer.equals(player)) {
                 var team = viewer.getScoreboard().getEntryTeam(pName);
