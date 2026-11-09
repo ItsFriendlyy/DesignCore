@@ -16,6 +16,7 @@ com/itsfriendly/designcore/listener/GUIListener.class
 com/itsfriendly/designcore/manager/GroupManager.class
 com/itsfriendly/designcore/listener/GUIListener$1.class
 com/itsfriendly/designcore/manager/FriendManager.class
+com/itsfriendly/designcore/DesignCore$1.class
 com/itsfriendly/designcore/command/MessageCommand.class
 com/itsfriendly/designcore/command/SpyCommand.class
 com/itsfriendly/designcore/manager/FriendManager$PrivacyMode.class

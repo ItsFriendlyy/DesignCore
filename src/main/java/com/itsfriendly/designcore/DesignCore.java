@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.help.GenericCommandHelpTopic;
@@ -73,7 +74,7 @@ public final class DesignCore extends JavaPlugin {
         // 6. Voice Hook Fallback
         this.voiceHook = new DummyVoiceHook();
 
-        // 7. Register /help DesignCore Index
+        // 7. Register /help DesignCore and alias /help design
         registerHelpTopics();
 
         getLogger().info("DesignCore has been enabled successfully!");
@@ -101,15 +102,41 @@ public final class DesignCore extends JavaPlugin {
             }
         }
 
+        // Master /help DesignCore index
         IndexHelpTopic indexTopic = new IndexHelpTopic(
                 getName(),
                 "All commands for " + getName(),
                 null,
                 topics,
-                "Below is a list of all " + getName() + " commands:"
+                "§6====== " + getName() + " Commands ======"
         );
 
+        Bukkit.getHelpMap().getHelpTopics().removeIf(topic -> topic.getName().equalsIgnoreCase(getName()));
         Bukkit.getHelpMap().addTopic(indexTopic);
+
+        // Alias "/help design" directly to the full command index
+        Bukkit.getHelpMap().addTopic(new HelpTopic() {
+            @Override
+            public String getName() {
+                return "/design";
+            }
+
+            @Override
+            public String getShortText() {
+                return "All commands for " + DesignCore.this.getName();
+            }
+
+            @Override
+            public String getFullText(CommandSender forWhom) {
+                HelpTopic mainTopic = Bukkit.getHelpMap().getHelpTopic(DesignCore.this.getName());
+                return mainTopic != null ? mainTopic.getFullText(forWhom) : "No help available.";
+            }
+
+            @Override
+            public boolean canSee(CommandSender player) {
+                return true;
+            }
+        });
     }
 
     private void registerCommand(String name, CommandExecutor executor) {
